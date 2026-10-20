@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Navigation, Loader2, AlertCircle, CheckCircle2, Crosshair } from 'lucide-react';
@@ -25,6 +25,21 @@ export interface LocationPickerProps {
   source?: 'gps' | 'manual' | null;
   className?: string;
 }
+
+// Structured diagnostic logger for browser troubleshooting
+const logDiagnostics = (event: string, details: Record<string, any>) => {
+  const timestamp = new Date().toISOString();
+  const base = {
+    event,
+    timestamp,
+    hasGeolocation: typeof navigator !== 'undefined' && 'geolocation' in navigator,
+    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    protocol: typeof window !== 'undefined' ? window.location.protocol : '',
+    hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+    ...details,
+  };
+  console.log(`[RIWA Geolocation] ${event}`, base);
+};
 
 // Controller component to smoothly fly/pan the map when coordinates change
 const MapController: React.FC<{
@@ -73,6 +88,51 @@ const LocationMarker: React.FC<{
   return position ? <Marker position={position} /> : null;
 };
 
+// Promise-based Geolocation wrapper with timing diagnostics
+const requestPosition = (
+  options: PositionOptions,
+  stageName: string,
+  startTime: number
+): Promise<GeolocationPosition> => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation not supported by browser environment.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const elapsed = Math.round(performance.now() - startTime);
+        logDiagnostics(`${stageName} Succeeded`, {
+          elapsedMs: elapsed,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracyMeters: pos.coords.accuracy,
+        });
+        resolve(pos);
+      },
+      (err) => {
+        const elapsed = Math.round(performance.now() - startTime);
+        logDiagnostics(`${stageName} Failed`, {
+          elapsedMs: elapsed,
+          code: err.code,
+          message: err.message,
+          errorName:
+            err.code === 1
+              ? 'PERMISSION_DENIED'
+              : err.code === 2
+              ? 'POSITION_UNAVAILABLE'
+              : err.code === 3
+              ? 'TIMEOUT'
+              : 'UNKNOWN',
+        });
+        reject(err);
+      },
+      options
+    );
+  });
+};
+
 export const LocationPicker: React.FC<LocationPickerProps> = ({ 
   onLocationSelect, 
   onLocationClear,
@@ -87,10 +147,13 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       ? L.latLng(initialLat, initialLng)
       : null
   );
+  const [accuracyMeters, setAccuracyMeters] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [locatingStage, setLocatingStage] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [shouldFly, setShouldFly] = useState(false);
   const [activeSource, setActiveSource] = useState<'gps' | 'manual' | null>(source || null);
+  const inFlightRef = useRef(false);
 
   // Sync internal position state if parent props change
   useEffect(() => {
@@ -112,16 +175,20 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
     }
   }, [source]);
 
-  const handleUseMyLocation = () => {
-    if (readOnly || isLocating) return;
+  // Two-Stage Location Strategy: Fast Coarse Network fix -> High Accuracy GPS Retry
+  const handleUseMyLocation = async () => {
+    if (readOnly || isLocating || inFlightRef.current) {
+      logDiagnostics('Request Skipped', { reason: 'Already locating or readOnly mode' });
+      return;
+    }
 
     setLocationError(null);
 
     // 1. Check browser Geolocation API support
     if (typeof window === 'undefined' || !('geolocation' in navigator) || !navigator.geolocation) {
-      setLocationError(
-        'Geolocation is not supported by your browser. Please select your location manually by clicking on the map.'
-      );
+      const msg = 'Geolocation is not supported by your browser. Please select your location manually by clicking on the map.';
+      logDiagnostics('Unsupported Environment', { message: msg });
+      setLocationError(msg);
       return;
     }
 
@@ -132,88 +199,163 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       window.location.hostname !== 'localhost' &&
       window.location.hostname !== '127.0.0.1'
     ) {
-      setLocationError(
-        'Browser geolocation requires a secure HTTPS connection. Please select your location manually on the map.'
-      );
+      const msg = 'Browser geolocation requires a secure HTTPS connection. Please select your location manually on the map.';
+      logDiagnostics('Insecure Context', { message: msg });
+      setLocationError(msg);
       return;
     }
 
-    setIsLocating(true);
+    // Check permission status if navigator.permissions API is available
+    let permissionState: string = 'unknown';
+    if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+      try {
+        const permStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        permissionState = permStatus.state;
+      } catch (e: any) {
+        permissionState = `query_error: ${e?.message || e}`;
+      }
+    }
 
-    const geoOptions: PositionOptions = {
-      enableHighAccuracy: true,
-      timeout: 15000, // 15-second timeout
-      maximumAge: 10000, // 10-second cache
+    const overallStartTime = performance.now();
+    logDiagnostics('Starting Two-Stage Geolocation Strategy', {
+      permissionState,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    });
+
+    inFlightRef.current = true;
+    setIsLocating(true);
+    setLocatingStage('Detecting location (Stage 1)...');
+
+    let positionAcquired: GeolocationPosition | null = null;
+    let finalError: GeolocationPositionError | Error | null = null;
+
+    // ─── STAGE 1: Fast / Coarse Request ─────────────────────────────────
+    // enableHighAccuracy: false avoids forcing cold-start satellite fix on laptops/desktops
+    // maximumAge: 120000 allows using a recently cached OS/network fix (within 2 min)
+    // timeout: 6000 gives 6 seconds for fast network triangulation
+    const stage1Options: PositionOptions = {
+      enableHighAccuracy: false,
+      timeout: 6000,
+      maximumAge: 120000,
     };
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const lat = Number(pos.coords.latitude);
-        const lng = Number(pos.coords.longitude);
+    try {
+      positionAcquired = await requestPosition(stage1Options, 'Stage 1 (Coarse/Cached)', overallStartTime);
+    } catch (err: any) {
+      finalError = err;
+      // If user explicitly denied permission, do not retry stage 2
+      if (err.code === 1 /* PERMISSION_DENIED */) {
+        logDiagnostics('Stage 1 encountered PERMISSION_DENIED. Aborting Stage 2.', { code: err.code });
+      } else {
+        // ─── STAGE 2: High-Accuracy GPS Request Fallback ──────────────────
+        logDiagnostics('Stage 1 did not resolve. Falling back to Stage 2 (High-Accuracy GPS)...', {
+          stage1ErrorCode: err.code,
+          stage1ErrorMessage: err.message,
+        });
+        setLocatingStage('Refining GPS fix (Stage 2)...');
 
-        // Strict numeric & boundary validation
-        if (
-          isNaN(lat) ||
-          isNaN(lng) ||
-          lat < -90 ||
-          lat > 90 ||
-          lng < -180 ||
-          lng > 180 ||
-          (lat === 0 && lng === 0)
-        ) {
+        const stage2Options: PositionOptions = {
+          enableHighAccuracy: true,
+          timeout: 12000, // 12-second timeout
+          maximumAge: 0,  // Fresh reading
+        };
+
+        try {
+          positionAcquired = await requestPosition(stage2Options, 'Stage 2 (High Accuracy GPS)', overallStartTime);
+          finalError = null; // Cleared on success
+        } catch (stage2Err: any) {
+          finalError = stage2Err;
+        }
+      }
+    } finally {
+      inFlightRef.current = false;
+      setIsLocating(false);
+      setLocatingStage(null);
+    }
+
+    // Process coordinates or handle final error
+    if (positionAcquired) {
+      const lat = Number(positionAcquired.coords.latitude);
+      const lng = Number(positionAcquired.coords.longitude);
+      const accuracy = positionAcquired.coords.accuracy;
+
+      // Strict numeric & global coordinate boundary validation
+      if (
+        isNaN(lat) ||
+        isNaN(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180 ||
+        (lat === 0 && lng === 0)
+      ) {
+        logDiagnostics('Position Rejected (Invalid Coordinates)', { lat, lng });
+        setLocationError(
+          'GPS returned invalid coordinates (out of bounds or 0,0). Please click directly on the map to pin your location manually.'
+        );
+        return;
+      }
+
+      logDiagnostics('Position Accepted & Applied', {
+        lat,
+        lng,
+        accuracyMeters: accuracy,
+        totalTimeMs: Math.round(performance.now() - overallStartTime),
+      });
+
+      const newPos = L.latLng(lat, lng);
+      setPosition(newPos);
+      setAccuracyMeters(accuracy ? Math.round(accuracy) : null);
+      setShouldFly(true);
+      setActiveSource('gps');
+      setLocationError(null);
+
+      if (onLocationSelect) {
+        onLocationSelect(lat, lng, 'gps');
+      }
+    } else if (finalError) {
+      const err = finalError as GeolocationPositionError;
+      logDiagnostics('All Geolocation Stages Failed', {
+        errorCode: err.code,
+        errorMessage: err.message,
+        totalTimeMs: Math.round(performance.now() - overallStartTime),
+      });
+
+      switch (err.code) {
+        case 1: // PERMISSION_DENIED
           setLocationError(
-            'GPS returned invalid coordinates. Please click on the map to pin your location manually.'
+            'Location permission was denied. Please allow location access in your browser address bar (lock/tune icon), or click directly on the map to select your location manually.'
           );
-          return;
-        }
-
-        const newPos = L.latLng(lat, lng);
-        setPosition(newPos);
-        setShouldFly(true);
-        setActiveSource('gps');
-        setLocationError(null);
-
-        if (onLocationSelect) {
-          onLocationSelect(lat, lng, 'gps');
-        }
-      },
-      (err: GeolocationPositionError) => {
-        setIsLocating(false);
-        switch (err.code) {
-          case err.PERMISSION_DENIED:
-            setLocationError(
-              'Location permission was denied. Please allow location access in your browser address bar (lock/tune icon), or click on the map to select your location manually.'
-            );
-            break;
-          case err.POSITION_UNAVAILABLE:
-            setLocationError(
-              'GPS location unavailable. Please verify your device location/GPS is turned on, or click directly on the map to place your pin.'
-            );
-            break;
-          case err.TIMEOUT:
-            setLocationError(
-              'Location request timed out. Please try clicking "Use My Location" again or select your location manually on the map.'
-            );
-            break;
-          default:
-            setLocationError(
-              `Unable to acquire location (${err.message || 'code ' + err.code}). Please click on the map to set your location.`
-            );
-            break;
-        }
-      },
-      geoOptions
-    );
+          break;
+        case 2: // POSITION_UNAVAILABLE
+          setLocationError(
+            'Location is unavailable from your device/network provider. Please verify device location services are enabled, or click directly on the map to place your pin.'
+          );
+          break;
+        case 3: // TIMEOUT
+          setLocationError(
+            'Location request timed out. Your device or network was unable to establish a GPS fix within the timeout period. Please click directly anywhere on the map to set your location manually.'
+          );
+          break;
+        default:
+          setLocationError(
+            `Unable to acquire location (${err.message || 'unknown error'}). Please select your location manually by clicking on the map.`
+          );
+          break;
+      }
+    }
   };
 
   const handleMapClick = (lat: number, lng: number) => {
     if (readOnly) return;
     const newPos = L.latLng(lat, lng);
     setPosition(newPos);
+    setAccuracyMeters(null);
     setShouldFly(false);
     setActiveSource('manual');
     setLocationError(null);
+
+    logDiagnostics('Manual Map Click Location Set', { lat, lng });
 
     if (onLocationSelect) {
       onLocationSelect(lat, lng, 'manual');
@@ -222,8 +364,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
   const handleClearPin = () => {
     setPosition(null);
+    setAccuracyMeters(null);
     setActiveSource(null);
     setLocationError(null);
+    logDiagnostics('Location Pin Cleared', {});
     if (onLocationClear) {
       onLocationClear();
     }
@@ -248,7 +392,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
               {isLocating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Acquiring GPS Location...</span>
+                  <span>{locatingStage || 'Acquiring location...'}</span>
                 </>
               ) : (
                 <>
@@ -266,7 +410,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
             <div className="flex items-center gap-1.5 text-xs">
               {activeSource === 'gps' ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> GPS Verified
+                  <CheckCircle2 className="w-3.5 h-3.5" /> GPS Verified {accuracyMeters ? `(±${accuracyMeters}m)` : ''}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">
@@ -331,7 +475,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
                 {position.lat.toFixed(6)}° N, {position.lng.toFixed(6)}° E
               </span>
               <span className="text-slate-500">
-                ({activeSource === 'gps' ? 'Auto-detected via GPS' : 'Selected via Map Click'})
+                ({activeSource === 'gps' ? `Auto-detected via GPS ${accuracyMeters ? `(±${accuracyMeters}m)` : ''}` : 'Selected via Map Click'})
               </span>
             </div>
           ) : (
