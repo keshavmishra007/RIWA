@@ -21,15 +21,12 @@ export const PublicNavbar: React.FC = () => {
             <Link to="/how-it-works" className="text-[#475569] hover:text-[#0F172A] px-3 py-2 text-sm font-medium">
               How It Works
             </Link>
-            <Link to="/intelligence" className="text-[#475569] hover:text-[#0F172A] px-3 py-2 text-sm font-medium">
-              Intelligence
-            </Link>
             <Link to="/demo" className="text-[#475569] hover:text-[#0F172A] px-3 py-2 text-sm font-medium">
               Demo
             </Link>
             <button
               onClick={() => navigate('/login')}
-              className="bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+              className="bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Sign In
             </button>
@@ -52,21 +49,14 @@ export const PublicNavbar: React.FC = () => {
           <div className="pt-2 pb-3 space-y-1">
             <Link
               to="/how-it-works"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]"
+              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
               onClick={() => setIsOpen(false)}
             >
               How It Works
             </Link>
             <Link
-              to="/intelligence"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]"
-              onClick={() => setIsOpen(false)}
-            >
-              Intelligence
-            </Link>
-            <Link
               to="/demo"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]"
+              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Demo

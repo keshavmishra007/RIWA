@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Incident, Hotspot } from '../../types';
 import { REWA_MAP_CENTER, REWA_MAP_ZOOM } from '../../data/mockData';
@@ -27,7 +27,20 @@ interface CivicMapProps {
   selectedIncidentId?: string;
   height?: string;
   showLegend?: boolean;
+  markerActionLabel?: string;
 }
+
+// Invalidate container size on mount to eliminate gray tile borders in previews/tabs
+const MapAutoResizer: React.FC = () => {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+};
 
 export const CivicMap: React.FC<CivicMapProps> = ({ 
   incidents, 
@@ -35,7 +48,8 @@ export const CivicMap: React.FC<CivicMapProps> = ({
   onIncidentClick, 
   selectedIncidentId,
   height = '100%',
-  showLegend = true
+  showLegend = true,
+  markerActionLabel
 }) => {
   return (
     <div style={{ height, width: '100%', position: 'relative' }} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm z-0">
@@ -45,6 +59,7 @@ export const CivicMap: React.FC<CivicMapProps> = ({
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
       >
+        <MapAutoResizer />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -62,6 +77,7 @@ export const CivicMap: React.FC<CivicMapProps> = ({
               incident={incident} 
               onClick={onIncidentClick || (() => {})}
               isSelected={selectedIncidentId === incident.id}
+              actionLabel={markerActionLabel}
             />
         ))}
       </MapContainer>

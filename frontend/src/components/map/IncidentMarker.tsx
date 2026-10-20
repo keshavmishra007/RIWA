@@ -9,6 +9,7 @@ interface IncidentMarkerProps {
   incident: Incident;
   onClick: (id: string) => void;
   isSelected?: boolean;
+  actionLabel?: string;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -22,14 +23,22 @@ const getPriorityColor = (priority: string) => {
 };
 
 const getTrendIcon = (trend: string) => {
-  switch (trend) {
-    case 'up': return <ChevronUp size={16} className="text-red-500" />;
-    case 'down': return <ChevronDown size={16} className="text-green-500" />;
-    default: return <Minus size={16} className="text-slate-400" />;
+  const t = (trend || '').toUpperCase();
+  if (t === 'RAPIDLY_RISING' || t === 'RISING' || t === 'UP') {
+    return <ChevronUp size={16} className="text-red-500" />;
   }
+  if (t === 'DOWN' || t === 'FALLING') {
+    return <ChevronDown size={16} className="text-green-500" />;
+  }
+  return <Minus size={16} className="text-slate-400" />;
 };
 
-export const IncidentMarker: React.FC<IncidentMarkerProps> = ({ incident, onClick, isSelected }) => {
+export const IncidentMarker: React.FC<IncidentMarkerProps> = ({ 
+  incident, 
+  onClick, 
+  isSelected,
+  actionLabel = 'View Details'
+}) => {
   const color = getPriorityColor(incident.priority);
   const isCritical = incident.priority === 'CRITICAL';
   const borderStyle = isSelected ? 'border: 3px solid #2563EB; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.4);' : 'border: 2px solid white;';
@@ -87,9 +96,9 @@ export const IncidentMarker: React.FC<IncidentMarkerProps> = ({ incident, onClic
               e.stopPropagation();
               onClick(incident.id);
             }}
-            className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+            className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition-colors shadow-sm"
           >
-            View Details
+            {actionLabel}
           </button>
         </div>
       </Popup>

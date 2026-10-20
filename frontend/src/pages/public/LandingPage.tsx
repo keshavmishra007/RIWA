@@ -1,9 +1,108 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Brain, Link as LinkIcon, Shield, FileText, GitMerge, AlertTriangle, ArrowRight, Map } from 'lucide-react';
-import { Button } from '../../components/ui/Button'; // Ensure this path exists
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Brain, Link as LinkIcon, Shield, FileText, GitMerge, AlertTriangle, ArrowRight, Loader2, Sparkles, Building2 } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { CivicMap } from '../../components/map/CivicMap';
+import { incidentsApi, analyticsApi } from '../../services/api';
+import type { Incident, AnalyticsOverview } from '../../types';
 
 export const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      incidentsApi.getAll(),
+      analyticsApi.getOverview().catch(() => null)
+    ])
+      .then(([incData, ovData]) => {
+        if (isMounted) {
+          setIncidents(incData || []);
+          setOverview(ovData);
+          setIsLoadingData(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Command center preview live fetch notice:', err);
+        if (isMounted) setIsLoadingData(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeIncidents = incidents.filter(
+    (i) => i.status !== 'CLOSED' && (i.reportCount || 0) > 0
+  );
+
+  // Honest illustrative fallback if live database is cold-starting or empty
+  const demoFallbackIncidents: Incident[] = [
+    {
+      id: 'INC-666',
+      incidentCode: 'INC-666',
+      title: 'Pothole & Road Crater Cluster',
+      category: 'road_damage',
+      priority: 'CRITICAL',
+      status: 'OPEN',
+      latitude: 24.5372,
+      longitude: 81.3015,
+      reportCount: 3,
+      department: 'Public Works',
+      fusionConfidence: 0.92,
+      trend: 'RISING',
+      summary: 'Multiple citizen complaints of road damage near College Chauraha.',
+      aiBrief: 'Severe potholes posing risk to two-wheelers.',
+      recommendedActions: ['Dispatch road repair team'],
+      areaKm: 0.3,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'INC-788',
+      incidentCode: 'INC-788',
+      title: 'Hospital Sanitation & Waste Overflow',
+      category: 'garbage',
+      priority: 'HIGH',
+      status: 'IN_PROGRESS',
+      latitude: 24.5420,
+      longitude: 81.2940,
+      reportCount: 2,
+      department: 'Sanitation',
+      fusionConfidence: 0.94,
+      trend: 'STABLE',
+      summary: 'Waste accumulation reported near hospital entrance.',
+      aiBrief: 'Sanitation clearance required.',
+      recommendedActions: ['Sanitation team dispatched'],
+      areaKm: 0.2,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  ];
+
+  const hasLiveData = activeIncidents.length > 0;
+  const displayIncidents = hasLiveData ? activeIncidents : demoFallbackIncidents;
+
+  const activeCount = overview
+    ? overview.activeIncidents
+    : hasLiveData
+    ? activeIncidents.length
+    : 2;
+
+  const criticalCount = overview
+    ? overview.criticalIncidents
+    : hasLiveData
+    ? activeIncidents.filter((i) => i.priority === 'CRITICAL').length
+    : 1;
+
+  const priorityList = [...displayIncidents]
+    .sort((a, b) => {
+      const priorityWeight: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+      return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+    })
+    .slice(0, 2);
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans">
       {/* Hero Section */}
@@ -170,30 +269,103 @@ export const LandingPage: React.FC = () => {
             See what is happening before the queue becomes noise.
           </h2>
           
-          <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 max-w-4xl mx-auto text-left">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <h3 className="font-bold text-lg text-slate-800">Command Center Preview</h3>
-              <div className="flex gap-2">
-                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">12 Critical</span>
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">45 Active</span>
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200 max-w-5xl mx-auto text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 mb-4 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-800">Command Center Preview</h3>
+                  <p className="text-xs text-slate-500">Live geographic clustering across Rewa Municipal Corporation</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 flex-wrap">
+                {hasLiveData ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Live Supabase Feed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                    Illustrative Demo Preview
+                  </span>
+                )}
+                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+                  {criticalCount} Critical
+                </span>
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                  {activeCount} Active
+                </span>
               </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="col-span-2 bg-slate-50 rounded-lg h-64 border border-slate-200 flex items-center justify-center flex-col text-slate-400">
-                <Map className="w-12 h-12 mb-2 opacity-50" />
-                <span>Live Map View</span>
+              {/* Working Real Leaflet Map */}
+              <div className="col-span-1 md:col-span-2 relative h-80 sm:h-96 rounded-xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+                {isLoadingData ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/90 text-slate-500 gap-3 z-10">
+                    <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+                    <span className="text-xs font-medium">Connecting to Rewa Incident Map...</span>
+                  </div>
+                ) : null}
+                
+                <CivicMap
+                  incidents={displayIncidents}
+                  hotspots={[]}
+                  onIncidentClick={() => navigate('/demo')}
+                  height="100%"
+                  showLegend={false}
+                  markerActionLabel="Explore in Live Demo"
+                />
               </div>
-              <div className="space-y-4">
-                <h4 className="font-semibold text-sm text-slate-600 uppercase tracking-wider">Top Priority</h4>
-                <div className="bg-white border-l-4 border-l-red-500 p-3 rounded shadow-sm border border-slate-200">
-                  <div className="text-xs font-bold text-red-600 mb-1">INC-089</div>
-                  <div className="text-sm font-semibold text-slate-800">Severe Waterlogging</div>
-                  <div className="text-xs text-slate-500 mt-2">12 linked reports</div>
+
+              {/* Priority Incident Action Cards */}
+              <div className="space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-xs text-slate-600 uppercase tracking-wider">Top Priority Incidents</h4>
+                    <span className="text-[11px] text-slate-400">Rewa, MP</span>
+                  </div>
+
+                  {priorityList.map((inc) => (
+                    <div
+                      key={inc.id}
+                      onClick={() => navigate('/demo')}
+                      className={`p-3.5 rounded-lg shadow-sm border transition-all cursor-pointer hover:shadow-md hover:border-blue-400 bg-white ${
+                        inc.priority === 'CRITICAL'
+                          ? 'border-l-4 border-l-red-500 border-slate-200'
+                          : 'border-l-4 border-l-orange-500 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[11px] font-bold ${
+                          inc.priority === 'CRITICAL' ? 'text-red-600' : 'text-orange-600'
+                        }`}>
+                          {inc.incidentCode || inc.id}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          inc.priority === 'CRITICAL' ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'
+                        }`}>
+                          {inc.priority}
+                        </span>
+                      </div>
+                      <div className="text-sm font-semibold text-slate-800 line-clamp-1">{inc.title}</div>
+                      <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
+                        <span>{inc.reportCount} fused citizen reports</span>
+                        <span className="text-blue-600 font-medium hover:underline text-[11px]">Inspect →</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="bg-white border-l-4 border-l-orange-500 p-3 rounded shadow-sm border border-slate-200">
-                  <div className="text-xs font-bold text-orange-600 mb-1">INC-090</div>
-                  <div className="text-sm font-semibold text-slate-800">Traffic Signal Failure</div>
-                  <div className="text-xs text-slate-500 mt-2">5 linked reports</div>
+
+                <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-100 text-xs text-blue-800">
+                  <p className="font-medium">Interactive Geospatial Grid</p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Click any marker on the map to inspect fused citizen reports, AI confidence, and municipal response.
+                  </p>
                 </div>
               </div>
             </div>

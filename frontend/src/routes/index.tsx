@@ -11,6 +11,8 @@ import { AuthorityLayout } from '../components/layout/AuthorityLayout';
 import { LandingPage } from '../pages/public/LandingPage';
 import { HowItWorksPage } from '../pages/public/HowItWorksPage';
 import { DemoPage } from '../pages/public/DemoPage';
+import { PrivacyPage } from '../pages/public/PrivacyPage';
+import { TermsPage } from '../pages/public/TermsPage';
 import { LoginPage } from '../pages/public/LoginPage';
 import { RegisterPage } from '../pages/public/RegisterPage';
 
@@ -59,6 +61,8 @@ const router = createBrowserRouter([
       { index: true, element: <LandingPage /> },
       { path: 'how-it-works', element: <HowItWorksPage /> },
       { path: 'demo', element: <DemoPage /> },
+      { path: 'privacy', element: <PrivacyPage /> },
+      { path: 'terms', element: <TermsPage /> },
     ]
   },
   {
