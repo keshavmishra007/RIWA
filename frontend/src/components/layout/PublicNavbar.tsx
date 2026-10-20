@@ -1,77 +1,92 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 
 export const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-[#E2E8F0]">
+    <nav className="sticky top-0 z-50 bg-[#0B132B]/95 backdrop-blur-md border-b border-slate-800/80 text-white transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="font-bold text-xl text-[#0F172A]">
-                <span className="text-[#2563EB]">RIWA</span> Platform
+        <div className="flex justify-between h-16 items-center">
+          {/* Brand Logo */}
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
+              <span className="font-black text-2xl tracking-tight text-white group-hover:text-blue-400 transition-colors">
+                <span className="text-[#3B82F6]">RIWA</span>
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-950/80 text-blue-300 border border-blue-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                Smart Rewa 2030
               </span>
             </Link>
           </div>
-          <div className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-8">
-            <Link to="/how-it-works" className="text-[#475569] hover:text-[#0F172A] px-3 py-2 text-sm font-medium">
+
+          {/* Desktop Navigation Links */}
+          <div className="hidden sm:flex sm:items-center sm:space-x-8 text-sm font-medium">
+            <Link 
+              to="/how-it-works" 
+              className="text-slate-300 hover:text-white transition-colors py-2 focus:outline-none focus:text-blue-400"
+            >
               How It Works
             </Link>
-            <Link to="/demo" className="text-[#475569] hover:text-[#0F172A] px-3 py-2 text-sm font-medium">
-              Demo
+            <Link 
+              to="/demo" 
+              className="text-slate-300 hover:text-white transition-colors py-2 focus:outline-none focus:text-blue-400"
+            >
+              Live Demo
             </Link>
             <button
               onClick={() => navigate('/login')}
-              className="bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm shadow-blue-600/30 active:scale-95 cursor-pointer"
             >
-              Sign In
+              <span>Sign In</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="-mr-2 flex items-center sm:hidden">
+
+          {/* Mobile Hamburger Button */}
+          <div className="flex items-center sm:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] focus:outline-none"
+              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Toggle navigation menu"
             >
-              <span className="sr-only">Open main menu</span>
-              {isOpen ? <X className="block h-6 w-6" /> : <Menu className="block h-6 w-6" />}
+              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Drawer */}
       {isOpen && (
-        <div className="sm:hidden border-t border-[#E2E8F0] bg-white">
-          <div className="pt-2 pb-3 space-y-1">
-            <Link
-              to="/how-it-works"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
-              onClick={() => setIsOpen(false)}
+        <div className="sm:hidden border-t border-slate-800 bg-[#0B132B]/98 backdrop-blur-xl px-4 pt-3 pb-6 space-y-3">
+          <Link
+            to="/how-it-works"
+            className="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors"
+            onClick={() => setIsOpen(false)}
+          >
+            How It Works
+          </Link>
+          <Link
+            to="/demo"
+            className="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors"
+            onClick={() => setIsOpen(false)}
+          >
+            Live Demo
+          </Link>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/login');
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-lg text-base font-semibold shadow-md transition-colors"
             >
-              How It Works
-            </Link>
-            <Link
-              to="/demo"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Demo
-            </Link>
-            <div className="pl-3 pr-4 py-2">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  navigate('/login');
-                }}
-                className="w-full text-center bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-2 rounded-md text-base font-medium"
-              >
-                Sign In
-              </button>
-            </div>
+              <span>Sign In to Platform</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
