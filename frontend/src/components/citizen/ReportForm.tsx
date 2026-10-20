@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { MapPin, CheckCircle, ChevronLeft, ChevronRight, Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { MapPin, CheckCircle, ChevronLeft, ChevronRight, Upload, X, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 import { LocationPicker } from '../map/LocationPicker';
 
 export interface Location {
@@ -10,6 +10,7 @@ export interface Location {
 export interface ReportFormData {
   description: string;
   location: Location | null;
+  locationSource?: 'gps' | 'manual' | null;
   photoUrl: string | null;
   photoFile?: File | null;
   photoPreview?: string | null;
@@ -24,19 +25,53 @@ interface ReportFormProps {
 export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting = false }) => {
   const [step, setStep] = useState(1);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [locationStepError, setLocationStepError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<ReportFormData>({
     description: '',
     location: null,
+    locationSource: null,
     photoUrl: null,
     photoFile: null,
     photoPreview: null,
     category: 'Auto-detected',
   });
 
-  const nextStep = () => setStep((prev) => Math.min(prev + 1, 3));
-  const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    if (step === 1) {
+      if (!formData.description.trim()) {
+        setFileError('Please provide a description of the issue before continuing.');
+        return;
+      }
+      setFileError(null);
+    }
+    if (step === 2) {
+      if (!formData.location || typeof formData.location.lat !== 'number' || typeof formData.location.lng !== 'number') {
+        setLocationStepError('Please set an incident location on the map or click "Use My Location" before continuing.');
+        return;
+      }
+      if (
+        isNaN(formData.location.lat) ||
+        isNaN(formData.location.lng) ||
+        formData.location.lat < -90 ||
+        formData.location.lat > 90 ||
+        formData.location.lng < -180 ||
+        formData.location.lng > 180 ||
+        (formData.location.lat === 0 && formData.location.lng === 0)
+      ) {
+        setLocationStepError('Selected coordinates are invalid. Please reposition the pin on the map.');
+        return;
+      }
+      setLocationStepError(null);
+    }
+    setStep((prev) => Math.min(prev + 1, 3));
+  };
+
+  const prevStep = () => {
+    setLocationStepError(null);
+    setStep((prev) => Math.max(prev - 1, 1));
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,6 +140,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
   };
 
   const handleSubmit = () => {
+    if (!formData.location) {
+      setStep(2);
+      setLocationStepError('A valid location is required to submit a report.');
+      return;
+    }
     onSubmit(formData);
   };
 
@@ -144,8 +184,12 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
               className="w-full p-3 border border-[#E2E8F0] rounded-lg focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none min-h-[120px] text-[#0F172A]"
               placeholder="Describe what is happening..."
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => {
+                setFileError(null);
+                setFormData({ ...formData, description: e.target.value });
+              }}
             ></textarea>
+            {fileError && <p className="text-xs text-[#DC2626] mt-1.5">{fileError}</p>}
           </div>
 
           <div>
@@ -205,55 +249,47 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
                 <span className="text-xs text-[#94A3B8] mt-1">PNG, JPG, WebP up to 10MB</span>
               </div>
             )}
-
-            {fileError && <p className="text-xs text-[#DC2626] mt-1.5">{fileError}</p>}
           </div>
         </div>
       )}
 
       {/* Step 2: Location */}
       {step === 2 && (
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-[#0F172A]">Set Location</h2>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                      setFormData({
-                        ...formData,
-                        location: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-                      });
-                    },
-                    () => {
-                      // fallback to default Rewa coords if permission denied
-                      setFormData({
-                        ...formData,
-                        location: { lat: 24.534, lng: 81.2965 },
-                      });
-                    }
-                  );
-                }
-              }}
-              className="flex items-center text-sm text-[#2563EB] font-medium hover:text-[#1D4ED8]"
-            >
-              <MapPin className="w-4 h-4 mr-1" /> Use My Location
-            </button>
-          </div>
-          <div className="h-[300px] rounded-lg border border-[#E2E8F0] overflow-hidden bg-[#F8FAFC]">
-            <LocationPicker
-              initialLat={formData.location?.lat}
-              initialLng={formData.location?.lng}
-              onLocationSelect={(lat, lng) => setFormData({ ...formData, location: { lat, lng } })}
-            />
-          </div>
-          {formData.location && (
-            <p className="text-sm text-[#475569]">
-              Selected: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-[#0F172A]">Set Location</h2>
+            <p className="text-sm text-[#64748B] mt-1">
+              Pinpoint the exact location of the civic issue. Click <strong>"Use My Location"</strong> for automatic GPS detection or click anywhere on the map to place your pin manually.
             </p>
+          </div>
+
+          {locationStepError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
+              <span>{locationStepError}</span>
+            </div>
           )}
+
+          <LocationPicker
+            initialLat={formData.location?.lat}
+            initialLng={formData.location?.lng}
+            source={formData.locationSource}
+            onLocationSelect={(lat, lng, source) => {
+              setLocationStepError(null);
+              setFormData((prev) => ({
+                ...prev,
+                location: { lat, lng },
+                locationSource: source,
+              }));
+            }}
+            onLocationClear={() => {
+              setFormData((prev) => ({
+                ...prev,
+                location: null,
+                locationSource: null,
+              }));
+            }}
+          />
         </div>
       )}
 
@@ -264,7 +300,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
           <div className="bg-[#F8FAFC] p-4 rounded-lg border border-[#E2E8F0] space-y-4">
             <div>
               <h3 className="text-sm font-medium text-[#475569]">Description</h3>
-              <p className="text-[#0F172A] mt-1">{formData.description || 'No description provided.'}</p>
+              <p className="text-[#0F172A] mt-1 whitespace-pre-wrap">{formData.description || 'No description provided.'}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -283,13 +319,24 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-[#475569]">Location</h3>
-              <p className="text-[#0F172A] mt-1 flex items-center">
-                <MapPin className="w-4 h-4 mr-1 text-[#64748B]" />
-                {formData.location
-                  ? `${formData.location.lat.toFixed(4)}, ${formData.location.lng.toFixed(4)}`
-                  : 'Rewa Center (Default)'}
-              </p>
+              <h3 className="text-sm font-medium text-[#475569]">Incident Location</h3>
+              <div className="mt-1">
+                <p className="text-[#0F172A] font-medium flex items-center">
+                  <MapPin className="w-4 h-4 mr-1 text-[#2563EB]" />
+                  {formData.location
+                    ? `${formData.location.lat.toFixed(5)}° N, ${formData.location.lng.toFixed(5)}° E`
+                    : 'No location selected'}
+                </p>
+                {formData.location && (
+                  <span className={`inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-medium mt-1.5 ${
+                    formData.locationSource === 'gps'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                  }`}>
+                    {formData.locationSource === 'gps' ? '📍 GPS Verified Coordinates' : '📌 Manually Pinned on Map'}
+                  </span>
+                )}
+              </div>
             </div>
 
             {formData.photoPreview && (

@@ -40,12 +40,20 @@ export const ReportPage: React.FC = () => {
         finalImageUrl = formData.photoUrl;
       }
 
-      // 2. Submit citizen report to backend pipeline
-      const lat = formData.location?.lat ?? 24.534;
-      const lng = formData.location?.lng ?? 81.2965;
+      // 2. Validate and submit citizen report to backend pipeline
+      if (!formData.location || typeof formData.location.lat !== 'number' || typeof formData.location.lng !== 'number') {
+        throw new Error('Valid incident location is required. Please set a location on the map.');
+      }
+
+      const lat = Number(formData.location.lat);
+      const lng = Number(formData.location.lng);
+
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180 || (lat === 0 && lng === 0)) {
+        throw new Error('Coordinates are outside valid boundaries. Please re-select a location on the map.');
+      }
 
       const response = await reportsApi.submit({
-        description: formData.description,
+        description: formData.description.trim(),
         latitude: lat,
         longitude: lng,
         imageUrl: finalImageUrl,

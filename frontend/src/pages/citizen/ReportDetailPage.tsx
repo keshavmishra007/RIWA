@@ -151,7 +151,7 @@ export const ReportDetailPage: React.FC = () => {
                 <LocationPicker 
                   initialLat={report.latitude}
                   initialLng={report.longitude}
-                  onLocationSelect={() => {}}
+                  readOnly={true}
                 />
               </div>
             </CardContent>
