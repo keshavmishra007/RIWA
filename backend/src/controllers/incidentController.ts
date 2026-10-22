@@ -5,8 +5,26 @@ import { IncidentStatus } from '../types/index.js';
 
 export const getIncidents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { category, priority, status, search, includeClosed, minReports } = req.query;
+    const { category, priority, status, search, includeClosed, minReports, departmentId, department } = req.query;
     let incidents = await db.getIncidents();
+
+    // Department filtering (supports departmentId, department name/code, or 'unassigned')
+    const deptQuery = departmentId || department;
+    if (deptQuery && typeof deptQuery === 'string' && deptQuery !== 'ALL') {
+      if (deptQuery.toLowerCase() === 'unassigned') {
+        incidents = incidents.filter((i) => !i.departmentId || i.departmentName === 'Unassigned');
+      } else {
+        const lowerDept = deptQuery.toLowerCase().trim();
+        const normDept = lowerDept.replace(/[\s_-]+/g, '');
+        incidents = incidents.filter((i) => {
+          if (i.departmentId === deptQuery) return true;
+          const deptName = (i.departmentName || '').toLowerCase().trim();
+          if (deptName === lowerDept) return true;
+          if (deptName.replace(/[\s_-]+/g, '') === normDept) return true;
+          return false;
+        });
+      }
+    }
 
     if (category && typeof category === 'string' && category !== 'ALL') {
       incidents = incidents.filter((i) => i.category === category);
@@ -178,12 +196,20 @@ export const assignIncidentDepartment = async (
 ): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const { departmentName, departmentId, note } = req.body;
+    const { departmentName, departmentId, note, status } = req.body;
+
+    const existing = await db.getIncidentById(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Incident not found.' });
+      return;
+    }
+
+    const newStatus = status || (existing.status === 'OPEN' ? 'ASSIGNED' : existing.status);
 
     const updated = await db.updateIncident(id, {
       departmentName,
       departmentId,
-      status: 'ASSIGNED',
+      status: newStatus,
     });
 
     if (!updated) {
@@ -192,13 +218,14 @@ export const assignIncidentDepartment = async (
     }
 
     const actorName = req.user?.name || 'Authority Dispatcher';
+    const targetDept = updated.departmentName || departmentName || 'department';
 
     await db.addStatusLog({
       incidentId: updated.id,
-      status: 'ASSIGNED',
+      status: newStatus,
       actorId: req.user?.userId,
       actorName,
-      note: note || `Dispatched to ${departmentName} by ${actorName}. Human authorization confirmed.`,
+      note: note || `Dispatched to ${targetDept} by ${actorName}. Human authorization confirmed.`,
     });
 
     res.json({

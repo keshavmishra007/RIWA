@@ -5,7 +5,7 @@ import { LocationPicker } from '../../components/map/LocationPicker';
 import { ReportTimeline } from '../../components/citizen/ReportTimeline';
 import { Badge } from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import { ChevronLeft, Link as LinkIcon, MapPin, AlertCircle, Users, Loader2 } from 'lucide-react';
+import { ChevronLeft, Link as LinkIcon, MapPin, AlertCircle, Users, Loader2, Clock } from 'lucide-react';
 import { formatRelativeTime, CATEGORY_CONFIG, STATUS_CONFIG } from '../../utils/helpers';
 import type { Complaint, Incident, CivicCategory, IncidentStatus } from '../../types';
 
@@ -158,7 +158,7 @@ export const ReportDetailPage: React.FC = () => {
           </Card>
 
           {/* Linked Incident */}
-          {linkedIncident && (
+          {linkedIncident ? (
             <Card className="border-blue-200 bg-blue-50/50">
               <CardContent className="p-6">
                 <div className="flex items-start gap-3 mb-4">
@@ -188,6 +188,27 @@ export const ReportDetailPage: React.FC = () => {
                       <Users className="w-4 h-4" /> {linkedIncident.reportCount} reports clustered
                     </span>
                     <span>Status: {linkedIncident.status.replace('_', ' ')}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-amber-200 bg-amber-50/40">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-slate-900">Incident Review in Progress</h3>
+                    <p className="text-sm text-slate-600">
+                      Your report has been logged and analyzed by RIWA AI. It is currently being clustered and assigned to a live civic incident by municipal authorities.
+                    </p>
+                    <div className="pt-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Status: Awaiting Incident Assignment
+                      </span>
+                    </div>
                   </div>
                 </div>
               </CardContent>

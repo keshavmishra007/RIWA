@@ -10,6 +10,8 @@ const AIAnalysisSchema = z.object({
   severity: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
   summary: z.string(),
   department: z.string(),
+  supportingDepartment: z.string().nullable().optional().transform((v) => v || undefined),
+  needsHumanReview: z.boolean().nullable().optional().transform((v) => v ?? false),
   confidence: z.number().min(0).max(1),
   keywords: z.array(z.string()).default([]),
   hazards: z.array(z.string()).default([]),
@@ -49,14 +51,17 @@ Perform:
    - 'HIGH': heavy waterlogging blocking vehicles, large potholes on main roads, major traffic jams, bio/chemical waste
    - 'MEDIUM': standard garbage pile, dark streetlights, potholes on residential streets, moderate traffic
    - 'LOW': minor litter, non-urgent maintenance
-4. Department Routing:
-   - drainage -> "Municipal Engineering"
-   - garbage -> "Sanitation"
-   - road_damage -> "Public Works"
-   - electrical_hazard -> "Electrical"
-   - other -> "Other Civic Services"
+4. Department Routing (must choose strictly from these 7 municipal departments):
+   - "Municipal Engineering": Blocked drains, drainage infrastructure, sewers, waterlogging.
+   - "Sanitation": Garbage dumps, overflowing bins, uncollected waste, public litter.
+   - "Public Works": Potholes, damaged roads, broken tarmac, structural road damage.
+   - "Electrical": Broken streetlights, live wires, sparking wires, electrical hazards.
+   - "Animal Control": Stray cows, cattle roaming, animals obstructing roads or public spaces, sick or injured animals.
+   - "Traffic Police": Traffic congestion, traffic jams, signal failures, illegal parking, road obstructions.
+   - "Other Civic Services": Miscellaneous civic complaints not fitting the six departments above, or ambiguous reports requiring human review.
+   If cows or animals are blocking traffic, set department to "Animal Control" and supportingDepartment to "Traffic Police".
 5. Multilingual normalization into a concise, formal English summary (1-2 sentences).
-6. Extraction of keywords, hazards (e.g. 'sparking', 'exposed_wire', 'deep_water', 'traffic_gridlock'), and sensitive locations ('school', 'hospital', 'market', 'bus_stand').
+6. Extraction of keywords, hazards (e.g. 'sparking', 'exposed_wire', 'deep_water', 'traffic_gridlock', 'animal_hazard'), and sensitive locations ('school', 'hospital', 'market', 'bus_stand').
 7. Confidence score between 0.0 and 1.0.
 
 Return strictly JSON matching this structure:
@@ -65,7 +70,9 @@ Return strictly JSON matching this structure:
   "subcategory": "traffic_congestion",
   "severity": "HIGH",
   "summary": "...",
-  "department": "Other Civic Services",
+  "department": "Traffic Police",
+  "supportingDepartment": "Animal Control",
+  "needsHumanReview": false,
   "confidence": 0.95,
   "keywords": ["traffic", "hospital"],
   "hazards": ["gridlock"],
@@ -117,6 +124,9 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     sensitiveLocations.push('market');
   }
 
+  let supportingDepartment: string | undefined = undefined;
+  let needsHumanReview = false;
+
   // Classification rules
   if (
     lower.includes('wire') ||
@@ -136,6 +146,7 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     } else {
       severity = 'LOW';
     }
+    keywords.push('electrical', 'hazard');
   } else if (
     lower.includes('water') ||
     lower.includes('paani') ||
@@ -144,6 +155,8 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     lower.includes('nala') ||
     lower.includes('naali') ||
     lower.includes('waterlog') ||
+    lower.includes('sewer') ||
+    lower.includes('sewage') ||
     lower.includes('overflow')
   ) {
     category = 'drainage';
@@ -173,23 +186,48 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     severity = lower.includes('huge') || lower.includes('water body') || lower.includes('lake') ? 'HIGH' : 'MEDIUM';
     keywords.push('waste', 'sanitation');
   } else if (
+    lower.includes('cow') ||
+    lower.includes('cattle') ||
+    lower.includes('gaay') ||
+    lower.includes('gaye') ||
+    lower.includes('saand') ||
+    lower.includes('bull') ||
+    lower.includes('bovine') ||
+    lower.includes('stray animal') ||
+    lower.includes('stray dog') ||
+    lower.includes('injured animal') ||
+    lower.includes('sick animal') ||
+    lower.includes('animal bite')
+  ) {
+    // 5. Animal Control
+    category = 'other';
+    department = 'Animal Control';
+    subcategory = lower.includes('injured') || lower.includes('sick') ? 'injured_animal' : 'stray_cattle';
+    severity = lower.includes('injured') || lower.includes('bite') || sensitiveLocations.includes('school') ? 'HIGH' : 'MEDIUM';
+    keywords.push('animal_control', 'stray_cattle');
+    hazards.push('animal_obstruction');
+
+    // If cows or animals are also blocking traffic or on the road
+    if (lower.includes('traffic') || lower.includes('jam') || lower.includes('road') || lower.includes('sadak')) {
+      supportingDepartment = 'Traffic Police';
+    }
+  } else if (
     lower.includes('traffic') ||
     lower.includes('jam') ||
     lower.includes('congestion') ||
     lower.includes('signal') ||
-    lower.includes('stray') ||
-    lower.includes('animal') ||
-    lower.includes('dog') ||
-    lower.includes('cow') ||
-    lower.includes('encroachment') ||
-    lower.includes('parking')
+    lower.includes('traffic light') ||
+    lower.includes('parking') ||
+    lower.includes('gridlock') ||
+    lower.includes('chakka jam')
   ) {
+    // 6. Traffic Police
     category = 'other';
-    department = 'Other Civic Services';
-    subcategory = lower.includes('traffic') || lower.includes('jam') ? 'traffic_congestion' : 'general_civic';
-    severity = lower.includes('hospital') || lower.includes('emergency') ? 'HIGH' : 'MEDIUM';
-    if (lower.includes('jam') || lower.includes('congestion')) hazards.push('traffic_gridlock');
-    keywords.push('traffic', 'civic_services');
+    department = 'Traffic Police';
+    subcategory = lower.includes('signal') ? 'traffic_signal_fault' : 'traffic_congestion';
+    severity = lower.includes('hospital') || lower.includes('emergency') || lower.includes('gridlock') ? 'HIGH' : 'MEDIUM';
+    hazards.push('traffic_gridlock');
+    keywords.push('traffic_police', 'congestion');
   } else if (
     lower.includes('pothole') ||
     lower.includes('gaddha') ||
@@ -205,10 +243,11 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     severity = lower.includes('nh-7') || lower.includes('highway') || lower.includes('bypass') ? 'HIGH' : 'MEDIUM';
     keywords.push('pothole', 'road');
   } else {
-    // Default to 'other' / General Civic Services for miscellaneous or uncertain reports
+    // 7. Other Civic Services (Miscellaneous / General civic / Ambiguous)
     category = 'other';
     department = 'Other Civic Services';
     subcategory = 'general_civic';
+    needsHumanReview = true;
     keywords.push('civic');
   }
 
@@ -218,7 +257,9 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     severity,
     summary: text.length > 120 ? `${text.substring(0, 117)}...` : text,
     department,
-    confidence: 0.88,
+    supportingDepartment,
+    needsHumanReview,
+    confidence: needsHumanReview ? 0.65 : 0.88,
     keywords,
     hazards,
     sensitiveLocations,

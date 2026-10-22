@@ -42,6 +42,8 @@ export interface AIAnalysisResult {
   severity: IncidentPriority;
   summary: string;
   department: string;
+  supportingDepartment?: string;
+  needsHumanReview?: boolean;
   confidence: number;
   keywords: string[];
   hazards: string[];
@@ -89,6 +91,9 @@ export interface IncidentRecord {
   fusionConfidence: number;
   departmentId?: string;
   departmentName?: string;
+  aiRecommendedDepartment?: string;
+  supportingDepartment?: string;
+  needsHumanReview?: boolean;
   summary: string;
   aiBrief: string;
   recommendedActions: string[];

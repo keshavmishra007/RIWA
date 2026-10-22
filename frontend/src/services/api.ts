@@ -61,7 +61,14 @@ export const authApi = {
 // ─── INCIDENTS API ───────────────────────────────────────────────────
 
 export const incidentsApi = {
-  getAll: async (filters?: { category?: string; priority?: string; status?: string; search?: string }): Promise<Incident[]> => {
+  getAll: async (filters?: {
+    category?: string;
+    priority?: string;
+    status?: string;
+    search?: string;
+    department?: string;
+    departmentId?: string;
+  }): Promise<Incident[]> => {
     try {
       const res = await apiClient.get('/incidents', { params: filters });
       return res.data;

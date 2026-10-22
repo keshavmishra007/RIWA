@@ -78,13 +78,64 @@ const memoryStore: InMemoryStore = {
     { id: 'dept-02', name: 'Sanitation', code: 'sanitation', description: 'Solid waste management and cleanliness' },
     { id: 'dept-03', name: 'Public Works', code: 'public_works', description: 'Roads, bridges, and public pathways' },
     { id: 'dept-04', name: 'Electrical', code: 'electrical', description: 'Street lighting and public electrical lines' },
-    { id: 'dept-05', name: 'Other Civic Services', code: 'other_civic_services', description: 'General civic issues, traffic, hospital cleanliness, and stray animals' },
+    { id: 'dept-05', name: 'Animal Control', code: 'animal_control', description: 'Stray cows, cattle roaming, animals obstructing roads, and animal-related public safety' },
+    { id: 'dept-06', name: 'Traffic Police', code: 'traffic_police', description: 'Traffic congestion, signal failures, dangerous road obstructions, and traffic enforcement' },
+    { id: 'dept-07', name: 'Other Civic Services', code: 'other_civic_services', description: 'General civic issues, miscellaneous infrastructure, and complaints requiring human review' },
   ],
   incidents: [],
   complaints: [],
   incidentReports: [],
   statusLogs: [],
   hotspots: [],
+};
+
+// Department heuristic recommendation helper
+export const deriveAiRecommendedDepartment = (incident: {
+  category?: string;
+  title?: string;
+  summary?: string;
+  aiBrief?: string;
+}): { recommended: string; supporting?: string; needsHumanReview?: boolean } => {
+  const text = `${incident.title || ''} ${incident.summary || ''} ${incident.aiBrief || ''}`.toLowerCase();
+  
+  if (
+    text.includes('cow') ||
+    text.includes('cattle') ||
+    text.includes('gaay') ||
+    text.includes('gaye') ||
+    text.includes('saand') ||
+    text.includes('bull') ||
+    text.includes('bovine') ||
+    text.includes('stray animal') ||
+    text.includes('stray dog') ||
+    text.includes('injured animal') ||
+    text.includes('sick animal')
+  ) {
+    const isTrafficBlocking = text.includes('traffic') || text.includes('jam') || text.includes('road') || text.includes('sadak');
+    return {
+      recommended: 'Animal Control',
+      supporting: isTrafficBlocking ? 'Traffic Police' : undefined,
+    };
+  }
+
+  if (
+    text.includes('traffic') ||
+    text.includes('jam') ||
+    text.includes('congestion') ||
+    text.includes('signal') ||
+    text.includes('parking') ||
+    text.includes('gridlock') ||
+    text.includes('chakka jam')
+  ) {
+    return { recommended: 'Traffic Police' };
+  }
+
+  if (incident.category === 'drainage') return { recommended: 'Municipal Engineering' };
+  if (incident.category === 'garbage') return { recommended: 'Sanitation' };
+  if (incident.category === 'road_damage') return { recommended: 'Public Works' };
+  if (incident.category === 'electrical_hazard') return { recommended: 'Electrical' };
+
+  return { recommended: 'Other Civic Services', needsHumanReview: true };
 };
 
 // Data Access Layer
@@ -179,29 +230,44 @@ export const db = {
         console.error('Supabase getIncidents error:', error);
         return memoryStore.incidents;
       }
-      return data.map((d: any) => ({
-        id: d.id,
-        incidentCode: d.incident_code,
-        title: d.title,
-        category: d.category,
-        latitude: d.latitude,
-        longitude: d.longitude,
-        priority: d.priority,
-        status: d.status,
-        fusionConfidence: d.fusion_confidence,
-        departmentId: d.department_id,
-        departmentName: d.departments?.name || 'Unassigned',
-        summary: d.summary,
-        aiBrief: d.ai_brief,
-        recommendedActions: Array.isArray(d.recommended_actions) ? d.recommended_actions : [],
-        reportCount: d.report_count,
-        areaKm: d.area_km,
-        trend: d.trend,
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-      }));
+      return data.map((d: any) => {
+        const aiDeptInfo = deriveAiRecommendedDepartment(d);
+        return {
+          id: d.id,
+          incidentCode: d.incident_code,
+          title: d.title,
+          category: d.category,
+          latitude: d.latitude,
+          longitude: d.longitude,
+          priority: d.priority,
+          status: d.status,
+          fusionConfidence: d.fusion_confidence,
+          departmentId: d.department_id,
+          departmentName: d.departments?.name || 'Unassigned',
+          aiRecommendedDepartment: aiDeptInfo.recommended,
+          supportingDepartment: aiDeptInfo.supporting,
+          needsHumanReview: aiDeptInfo.needsHumanReview,
+          summary: d.summary,
+          aiBrief: d.ai_brief,
+          recommendedActions: Array.isArray(d.recommended_actions) ? d.recommended_actions : [],
+          reportCount: d.report_count,
+          areaKm: d.area_km,
+          trend: d.trend,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+        };
+      });
     }
-    return memoryStore.incidents;
+    return memoryStore.incidents.map((inc) => {
+      const aiDeptInfo = deriveAiRecommendedDepartment(inc);
+      return {
+        ...inc,
+        departmentName: inc.departmentName || 'Unassigned',
+        aiRecommendedDepartment: inc.aiRecommendedDepartment || aiDeptInfo.recommended,
+        supportingDepartment: inc.supportingDepartment || aiDeptInfo.supporting,
+        needsHumanReview: inc.needsHumanReview || aiDeptInfo.needsHumanReview,
+      };
+    });
   },
 
   getIncidentById: async (id: string): Promise<IncidentRecord | null> => {
@@ -216,6 +282,7 @@ export const db = {
       }
       const { data, error } = await query.single();
       if (error || !data) return null;
+      const aiDeptInfo = deriveAiRecommendedDepartment(data);
       return {
         id: data.id,
         incidentCode: data.incident_code,
@@ -228,6 +295,9 @@ export const db = {
         fusionConfidence: data.fusion_confidence,
         departmentId: data.department_id,
         departmentName: data.departments?.name || 'Unassigned',
+        aiRecommendedDepartment: aiDeptInfo.recommended,
+        supportingDepartment: aiDeptInfo.supporting,
+        needsHumanReview: aiDeptInfo.needsHumanReview,
         summary: data.summary,
         aiBrief: data.ai_brief,
         recommendedActions: Array.isArray(data.recommended_actions) ? data.recommended_actions : [],
@@ -238,10 +308,16 @@ export const db = {
         updatedAt: data.updated_at,
       };
     }
-    return (
-      memoryStore.incidents.find((inc) => inc.id === id || inc.incidentCode.toLowerCase() === id.toLowerCase()) ||
-      null
-    );
+    const found = memoryStore.incidents.find((inc) => inc.id === id || inc.incidentCode.toLowerCase() === id.toLowerCase()) || null;
+    if (!found) return null;
+    const aiDeptInfo = deriveAiRecommendedDepartment(found);
+    return {
+      ...found,
+      departmentName: found.departmentName || 'Unassigned',
+      aiRecommendedDepartment: found.aiRecommendedDepartment || aiDeptInfo.recommended,
+      supportingDepartment: found.supportingDepartment || aiDeptInfo.supporting,
+      needsHumanReview: found.needsHumanReview || aiDeptInfo.needsHumanReview,
+    };
   },
 
   createIncident: async (incident: Omit<IncidentRecord, 'id'>): Promise<IncidentRecord> => {
@@ -307,7 +383,20 @@ export const db = {
       if (updates.priority) mappedUpdates.priority = updates.priority;
       if (updates.reportCount !== undefined) mappedUpdates.report_count = updates.reportCount;
       if (updates.fusionConfidence !== undefined) mappedUpdates.fusion_confidence = updates.fusionConfidence;
-      if (updates.departmentId) mappedUpdates.department_id = updates.departmentId;
+      if (updates.departmentId !== undefined) {
+        mappedUpdates.department_id = updates.departmentId;
+      } else if (updates.departmentName) {
+        if (updates.departmentName.toLowerCase() === 'unassigned') {
+          mappedUpdates.department_id = null;
+        } else {
+          const { data: dept } = await supabase
+            .from('departments')
+            .select('id')
+            .ilike('name', updates.departmentName)
+            .maybeSingle();
+          if (dept) mappedUpdates.department_id = dept.id;
+        }
+      }
       if (updates.trend) mappedUpdates.trend = updates.trend;
       if (updates.summary) mappedUpdates.summary = updates.summary;
       if (updates.aiBrief) mappedUpdates.ai_brief = updates.aiBrief;
@@ -320,8 +409,9 @@ export const db = {
       } else {
         query = query.eq('incident_code', id);
       }
-      const { data, error } = await query.select().single();
+      const { data, error } = await query.select('*, departments(name)').single();
       if (error || !data) return null;
+      const aiDeptInfo = deriveAiRecommendedDepartment(data);
       return {
         id: data.id,
         incidentCode: data.incident_code,
@@ -333,6 +423,10 @@ export const db = {
         status: data.status,
         fusionConfidence: data.fusion_confidence,
         departmentId: data.department_id,
+        departmentName: data.departments?.name || 'Unassigned',
+        aiRecommendedDepartment: aiDeptInfo.recommended,
+        supportingDepartment: aiDeptInfo.supporting,
+        needsHumanReview: aiDeptInfo.needsHumanReview,
         summary: data.summary,
         aiBrief: data.ai_brief,
         recommendedActions: data.recommended_actions,
@@ -524,6 +618,101 @@ export const db = {
     }
   },
 
+  // Deduplication & In-Flight Recovery: find recent identical complaint within time window
+  findRecentComplaint: async (params: {
+    userId?: string | null;
+    description: string;
+    latitude: number;
+    longitude: number;
+    sinceMinutes?: number;
+  }): Promise<ComplaintRecord | null> => {
+    const supabase = getSupabase();
+    const minutes = params.sinceMinutes || 15;
+    const sinceTime = new Date(Date.now() - minutes * 60 * 1000).toISOString();
+    const cleanDesc = params.description.trim().toLowerCase();
+
+    if (supabase) {
+      let query = supabase
+        .from('complaints')
+        .select('*')
+        .gte('created_at', sinceTime);
+
+      if (params.userId) {
+        query = query.eq('user_id', params.userId);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return null;
+
+      // Find match with exact description and proximity (~150 meters)
+      const match = data.find((c: any) => {
+        const descMatch = (c.description || '').trim().toLowerCase() === cleanDesc;
+        const latDiff = Math.abs(Number(c.latitude) - params.latitude);
+        const lonDiff = Math.abs(Number(c.longitude) - params.longitude);
+        const geoMatch = latDiff < 0.002 && lonDiff < 0.002;
+        return descMatch && geoMatch;
+      });
+
+      if (match) {
+        return {
+          id: match.id,
+          complaintCode: match.complaint_code,
+          userId: match.user_id,
+          description: match.description,
+          rawText: match.raw_text,
+          imageUrl: match.image_url,
+          latitude: Number(match.latitude),
+          longitude: Number(match.longitude),
+          category: match.category,
+          status: match.status,
+          incidentId: match.incident_id,
+          createdAt: match.created_at,
+        };
+      }
+      return null;
+    }
+
+    const match = memoryStore.complaints.find((c) => {
+      const isRecent = new Date(c.createdAt).getTime() >= Date.now() - minutes * 60 * 1000;
+      const descMatch = (c.description || '').trim().toLowerCase() === cleanDesc;
+      const userMatch = !params.userId || c.userId === params.userId;
+      const latDiff = Math.abs(c.latitude - params.latitude);
+      const lonDiff = Math.abs(c.longitude - params.longitude);
+      return isRecent && descMatch && userMatch && latDiff < 0.002 && lonDiff < 0.002;
+    });
+
+    return match || null;
+  },
+
+  // Retrieve unlinked complaints for recovery / health checks
+  getUnlinkedComplaints: async (): Promise<ComplaintRecord[]> => {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .is('incident_id', null)
+        .order('created_at', { ascending: false });
+
+      if (error || !data) return [];
+      return data.map((d: any) => ({
+        id: d.id,
+        complaintCode: d.complaint_code,
+        userId: d.user_id,
+        description: d.description,
+        rawText: d.raw_text,
+        imageUrl: d.image_url,
+        latitude: Number(d.latitude),
+        longitude: Number(d.longitude),
+        category: d.category,
+        status: d.status,
+        incidentId: d.incident_id,
+        createdAt: d.created_at,
+      }));
+    }
+    return memoryStore.complaints.filter((c) => !c.incidentId);
+  },
+
   // AI Analyses Storage
   createAIAnalysis: async (analysis: {
     complaintId: string;
@@ -564,12 +753,18 @@ export const db = {
   getIncidentComplaintEmbeddings: async (incidentId: string): Promise<number[][]> => {
     const supabase = getSupabase();
     if (supabase) {
-      const { data: compData } = await supabase
-        .from('complaints')
-        .select('id')
-        .eq('incident_id', incidentId);
-      if (compData && compData.length > 0) {
-        const compIds = compData.map((c: any) => c.id);
+      // Query member complaint IDs from both complaints table and incident_reports table
+      const [compRes, irRes] = await Promise.all([
+        supabase.from('complaints').select('id').eq('incident_id', incidentId),
+        supabase.from('incident_reports').select('complaint_id').eq('incident_id', incidentId),
+      ]);
+
+      const compIdsSet = new Set<string>();
+      compRes.data?.forEach((c: any) => compIdsSet.add(c.id));
+      irRes.data?.forEach((r: any) => compIdsSet.add(r.complaint_id));
+
+      const compIds = Array.from(compIdsSet);
+      if (compIds.length > 0) {
         const { data: aiData } = await supabase
           .from('ai_analyses')
           .select('embedding')
@@ -586,10 +781,35 @@ export const db = {
     return [];
   },
 
-  // Incident Reports & Fusion Relations
+  // Incident Reports & Fusion Relations (Idempotent: updates if complaint association already exists)
   createIncidentReport: async (report: Omit<IncidentReportRecord, 'id'>) => {
     const supabase = getSupabase();
     if (supabase) {
+      // Check if association already exists for this complaint
+      const { data: existing } = await supabase
+        .from('incident_reports')
+        .select('id')
+        .eq('complaint_id', report.complaintId)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('incident_reports')
+          .update({
+            incident_id: report.incidentId,
+            fusion_score: report.fusionScore,
+            semantic_score: report.semanticScore,
+            location_score: report.locationScore,
+            time_score: report.timeScore,
+            category_score: report.categoryScore,
+          })
+          .eq('id', existing.id);
+        if (error) {
+          console.error('Error updating incident_report in Supabase:', error);
+        }
+        return;
+      }
+
       const { error } = await supabase.from('incident_reports').insert({
         incident_id: report.incidentId,
         complaint_id: report.complaintId,
@@ -602,6 +822,14 @@ export const db = {
       if (error) {
         console.error('Error creating incident_report in Supabase:', error);
       }
+      return;
+    }
+    const existingIdx = memoryStore.incidentReports.findIndex((r) => r.complaintId === report.complaintId);
+    if (existingIdx !== -1) {
+      memoryStore.incidentReports[existingIdx] = {
+        ...memoryStore.incidentReports[existingIdx],
+        ...report,
+      };
       return;
     }
     memoryStore.incidentReports.push({
@@ -760,7 +988,10 @@ export const db = {
   getDepartments: async () => {
     const supabase = getSupabase();
     if (supabase) {
-      const { data } = await supabase.from('departments').select('*');
+      const { data } = await supabase
+        .from('departments')
+        .select('*')
+        .order('created_at', { ascending: true });
       if (data && data.length > 0) return data;
     }
     return memoryStore.departments;

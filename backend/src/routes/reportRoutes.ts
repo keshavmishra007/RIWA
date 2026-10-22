@@ -3,6 +3,7 @@ import multer from 'multer';
 import {
   getMyReports,
   getReportById,
+  reconcileComplaint,
   submitReport,
   uploadReportImage,
 } from '../controllers/reportController.js';
@@ -51,6 +52,7 @@ router.post('/upload', handleUpload, uploadReportImage);
 
 // Citizen report submission & retrieval
 router.post('/', submitReport);
+router.post('/:id/reconcile', reconcileComplaint);
 router.get('/my', requireAuth, getMyReports);
 router.get('/my-reports', requireAuth, getMyReports);
 router.get('/:id', getReportById);

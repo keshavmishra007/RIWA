@@ -82,6 +82,8 @@ export interface AIAnalysis {
   severity: IncidentPriority;
   summary: string;
   department: string;
+  supportingDepartment?: string;
+  needsHumanReview?: boolean;
   confidence: number;
   keywords: string[];
   hazards: string[];
@@ -112,6 +114,9 @@ export interface Incident {
   department: string;
   departmentId?: string;
   departmentName?: string;
+  aiRecommendedDepartment?: string;
+  supportingDepartment?: string;
+  needsHumanReview?: boolean;
   fusionConfidence: number;
   trend: IncidentTrend;
   summary: string;
@@ -165,6 +170,8 @@ export interface Hotspot {
 export interface Department {
   id: string;
   name: string;
+  code?: string;
+  description?: string;
   activeIncidents: number;
   criticalIncidents: number;
   pendingIncidents: number;

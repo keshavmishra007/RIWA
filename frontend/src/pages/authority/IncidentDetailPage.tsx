@@ -8,6 +8,7 @@ import { RelatedReports } from '../../components/incidents/RelatedReports';
 import { IncidentTimeline } from '../../components/incidents/IncidentTimeline';
 import { RecommendedAction } from '../../components/incidents/RecommendedAction';
 import { StatusControl } from '../../components/incidents/StatusControl';
+import { DepartmentControl } from '../../components/incidents/DepartmentControl';
 import { incidentsApi } from '../../services/api';
 import { PRIORITY_CONFIG, TREND_CONFIG, STATUS_CONFIG, formatPercentage } from '../../utils/helpers';
 import type { Incident, IncidentStatus, FusionExplanation as FusionType } from '../../types';
@@ -59,6 +60,16 @@ export const IncidentDetailPage: React.FC = () => {
       setStatusLogs(fresh.statusLogs || []);
     } catch (err) {
       console.error('Error changing status:', err);
+    }
+  };
+
+  const handleDepartmentAssigned = async (updated: Incident) => {
+    setIncident(updated);
+    try {
+      const fresh = await incidentsApi.getById(updated.id);
+      setStatusLogs(fresh.statusLogs || []);
+    } catch (err) {
+      console.error('Error refreshing incident logs:', err);
     }
   };
 
@@ -130,9 +141,19 @@ export const IncidentDetailPage: React.FC = () => {
               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle.color} ${statusStyle.bg}`}>
                 {statusStyle.label}
               </span>
-              {incident.departmentName && (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
+              {incident.departmentName && incident.departmentName !== 'Unassigned' ? (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
                   {incident.departmentName}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  <AlertCircle className="w-3 h-3 text-amber-600" />
+                  Unassigned / Needs Routing
+                </span>
+              )}
+              {incident.aiRecommendedDepartment && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                  🤖 AI Rec: {incident.aiRecommendedDepartment}
                 </span>
               )}
             </div>
@@ -184,6 +205,17 @@ export const IncidentDetailPage: React.FC = () => {
 
         {/* Right Column - Supporting Info */}
         <div className="flex flex-col gap-6">
+          {/* Department Control */}
+          <DepartmentControl
+            incidentId={incident.id}
+            currentDepartmentName={incident.departmentName || incident.department}
+            currentDepartmentId={incident.departmentId}
+            aiRecommendedDepartment={incident.aiRecommendedDepartment}
+            supportingDepartment={incident.supportingDepartment}
+            needsHumanReview={incident.needsHumanReview}
+            onDepartmentAssigned={handleDepartmentAssigned}
+          />
+
           {/* Incident Location Map */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">

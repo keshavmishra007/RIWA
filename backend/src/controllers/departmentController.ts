@@ -7,9 +7,16 @@ export const getDepartments = async (_req: Request, res: Response): Promise<void
     const incidents = await db.getIncidents();
 
     const result = (departments || []).map((dept: any) => {
-      const deptIncidents = incidents.filter(
-        (i) => i.departmentId === dept.id || i.departmentName === dept.name
-      );
+      const normDeptName = (dept.name || '').toLowerCase().replace(/[\s_-]+/g, '');
+      const normDeptCode = (dept.code || '').toLowerCase().replace(/[\s_-]+/g, '');
+      const deptIncidents = incidents.filter((i) => {
+        if (i.departmentId === dept.id) return true;
+        const iDept = (i.departmentName || '').toLowerCase().trim();
+        const normIDept = iDept.replace(/[\s_-]+/g, '');
+        return iDept === (dept.name || '').toLowerCase().trim() ||
+               normIDept === normDeptName ||
+               (normDeptCode && normIDept === normDeptCode);
+      });
       const activeIncidents = deptIncidents.filter(
         (i) => i.status !== 'RESOLVED' && i.status !== 'CLOSED'
       ).length;

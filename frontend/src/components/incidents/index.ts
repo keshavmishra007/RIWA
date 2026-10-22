@@ -6,3 +6,5 @@ export * from './RelatedReports';
 export * from './IncidentTimeline';
 export * from './RecommendedAction';
 export * from './StatusControl';
+export * from './DepartmentControl';
+
