@@ -21,7 +21,7 @@ export const CitizenLayout: React.FC = () => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/citizen" className="flex items-center">
-                <span className="font-bold text-xl text-[#2563EB]">RIWA</span>
+                <span className="font-bold text-xl text-[#2563EB]">RiWA</span>
                 <span className="ml-2 text-sm text-[#64748B] hidden sm:block">Citizen Portal</span>
               </Link>
             </div>

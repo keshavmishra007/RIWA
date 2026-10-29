@@ -27,6 +27,10 @@ export const ENV = {
   FUSION_REVIEW_THRESHOLD: parseFloat(process.env.FUSION_REVIEW_THRESHOLD || '0.65'),
   FUSION_MAX_DISTANCE_KM: parseFloat(process.env.FUSION_MAX_DISTANCE_KM || '0.5'),
   FUSION_MAX_TIME_HOURS: parseFloat(process.env.FUSION_MAX_TIME_HOURS || '48'),
+
+  // Vision Shadow Mode (Strictly defaults to false; missing/empty/invalid evaluates to false)
+  SHADOW_FUSION_ENABLED: process.env.SHADOW_FUSION_ENABLED === 'true',
+  SHADOW_OUTPUT_DIR: process.env.SHADOW_OUTPUT_DIR || 'data/shadow',
 };
 
 export const isSupabaseConfigured = (): boolean => {

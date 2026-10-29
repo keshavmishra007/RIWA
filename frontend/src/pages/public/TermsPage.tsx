@@ -22,7 +22,7 @@ export const TermsPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Terms of Service</h1>
               <p className="text-slate-500 text-sm mt-1">
-                RIWA — Rewa Intelligence for Watch & Action • Smart Rewa 2030 Initiative
+                RiWA — Rewa Intelligence for Work and Action • Smart Rewa 2030 Initiative
               </p>
             </div>
           </div>
@@ -35,7 +35,7 @@ export const TermsPage: React.FC = () => {
               1. Platform Purpose & Scope
             </h2>
             <p>
-              RIWA provides a unified AI platform for reporting, consolidating, and monitoring non-emergency municipal civic issues (including road hazards, waterlogging, garbage accumulation, and street lighting failures) within the municipal limits of Rewa, Madhya Pradesh.
+              RiWA provides a unified AI platform for reporting, consolidating, and monitoring non-emergency municipal civic issues (including road hazards, waterlogging, garbage accumulation, and street lighting failures) within the municipal limits of Rewa, Madhya Pradesh.
             </p>
           </section>
 
@@ -45,7 +45,7 @@ export const TermsPage: React.FC = () => {
               2. Emergency Notice & Disclaimer
             </h2>
             <p className="mt-1">
-              <strong>DO NOT USE RIWA FOR EMERGENCIES:</strong> RIWA is strictly an asynchronous civic tracking platform. It is not connected to instant dispatch 911/112 CAD systems. If you or someone else is in immediate danger, witnessing a crime, experiencing a medical emergency, or encountering a structural fire, please immediately call official Madhya Pradesh emergency numbers:
+              <strong>DO NOT USE RiWA FOR EMERGENCIES:</strong> RiWA is strictly an asynchronous civic tracking platform. It is not connected to instant dispatch 911/112 CAD systems. If you or someone else is in immediate danger, witnessing a crime, experiencing a medical emergency, or encountering a structural fire, please immediately call official Madhya Pradesh emergency numbers:
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-center font-bold">
               <div className="bg-white p-2 rounded border border-red-200 text-red-700">112 (ERSS)</div>
@@ -68,7 +68,7 @@ export const TermsPage: React.FC = () => {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">4. Hackathon Attribution & Open Governance</h2>
             <p>
-              RIWA was conceived and demonstrated for the <strong>iComputex Tech Fest 2026</strong> as an innovative civic intelligence platform uniting citizens and local administration under the Smart Rewa 2030 roadmap.
+              RiWA was conceived and demonstrated for the <strong>iComputex Tech Fest 2026</strong> as an innovative civic intelligence platform uniting citizens and local administration under the Smart Rewa 2030 roadmap.
             </p>
           </section>
 
@@ -78,7 +78,7 @@ export const TermsPage: React.FC = () => {
             </span>
             <Link to="/how-it-works">
               <Button variant="secondary" size="sm">
-                How RIWA Works
+                How RiWA Works
               </Button>
             </Link>
           </div>

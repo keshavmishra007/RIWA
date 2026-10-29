@@ -67,7 +67,7 @@ export const LoginPage: React.FC = () => {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-8">
             <Activity className="w-8 h-8 text-cyan-400" />
-            <span className="text-3xl font-bold tracking-tight">RIWA</span>
+            <span className="text-3xl font-bold tracking-tight">RiWA</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
             Civic intelligence for a more responsive city.

@@ -22,7 +22,7 @@ export const PrivacyPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Privacy Policy</h1>
               <p className="text-slate-500 text-sm mt-1">
-                RIWA — Rewa Intelligence for Watch & Action • Smart Rewa 2030 Initiative
+                RiWA — Rewa Intelligence for Work and Action • Smart Rewa 2030 Initiative
               </p>
             </div>
           </div>
@@ -35,7 +35,7 @@ export const PrivacyPage: React.FC = () => {
               1. Our Civic Data Commitment
             </h2>
             <p>
-              RIWA (Rewa Intelligence for Watch & Action) is a civic governance platform engineered to improve municipal transparency and emergency civic response across Rewa, Madhya Pradesh. We collect only the information strictly necessary to identify, verify, and resolve public infrastructure issues.
+              RiWA (Rewa Intelligence for Work and Action) is a civic governance platform engineered to improve municipal transparency and emergency civic response across Rewa, Madhya Pradesh. We collect only the information strictly necessary to identify, verify, and resolve public infrastructure issues.
             </p>
             <p className="font-medium text-slate-900">
               We never sell, monetize, or share citizen personal information with commercial advertisers or third-party brokers.
@@ -77,7 +77,7 @@ export const PrivacyPage: React.FC = () => {
           <section className="space-y-3 bg-amber-50 p-4 rounded-lg border border-amber-200 text-amber-900 text-sm">
             <p className="font-semibold">Notice regarding Immediate Emergencies:</p>
             <p>
-              RIWA is a civic issue remediation tool and is <strong>not</strong> an emergency response dispatch service. For urgent life-threatening crises, crimes, medical emergencies, or fires, dial official emergency helplines directly: <strong>112 (ERSS)</strong>, <strong>108 (Ambulance)</strong>, or <strong>101 (Fire)</strong>.
+              RiWA is a civic issue remediation tool and is <strong>not</strong> an emergency response dispatch service. For urgent life-threatening crises, crimes, medical emergencies, or fires, dial official emergency helplines directly: <strong>112 (ERSS)</strong>, <strong>108 (Ambulance)</strong>, or <strong>101 (Fire)</strong>.
             </p>
           </section>
 

@@ -313,7 +313,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ onSubmit, isSubmitting =
               <div>
                 <h3 className="text-sm font-medium text-[#475569]">AI Priority Assessment</h3>
                 <span className="inline-block px-2 py-1 bg-yellow-50 text-[#F59E0B] text-xs font-medium rounded mt-1">
-                  Automated by RIWA AI
+                  Automated by RiWA AI
                 </span>
               </div>
             </div>

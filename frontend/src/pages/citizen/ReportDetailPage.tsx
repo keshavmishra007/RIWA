@@ -202,7 +202,7 @@ export const ReportDetailPage: React.FC = () => {
                   <div className="space-y-1">
                     <h3 className="font-semibold text-slate-900">Incident Review in Progress</h3>
                     <p className="text-sm text-slate-600">
-                      Your report has been logged and analyzed by RIWA AI. It is currently being clustered and assigned to a live civic incident by municipal authorities.
+                      Your report has been logged and analyzed by RiWA AI. It is currently being clustered and assigned to a live civic incident by municipal authorities.
                     </p>
                     <div className="pt-2">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">

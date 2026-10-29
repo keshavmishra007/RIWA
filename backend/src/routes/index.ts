@@ -19,7 +19,7 @@ apiRouter.use('/departments', departmentRoutes);
 apiRouter.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'RIWA Civic Intelligence API',
+    service: 'RiWA Civic Intelligence API',
     timestamp: new Date().toISOString(),
   });
 });

@@ -34,7 +34,7 @@ export const DemoPage: React.FC = () => {
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
           <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Interactive Demo</h1>
           <p className="text-[#475569] mb-8">
-            Experience RIWA from both the citizen's perspective and the authority's command center.
+            Experience RiWA from both the citizen's perspective and the authority's command center.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -14,7 +14,7 @@ export const PublicNavbar: React.FC = () => {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
               <span className="font-black text-2xl tracking-tight text-white group-hover:text-blue-400 transition-colors">
-                <span className="text-[#3B82F6]">RIWA</span>
+                <span className="text-[#3B82F6]">RiWA</span>
               </span>
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-950/80 text-blue-300 border border-blue-800/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />

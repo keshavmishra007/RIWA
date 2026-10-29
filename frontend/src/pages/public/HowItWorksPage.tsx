@@ -6,7 +6,7 @@ export const HowItWorksPage: React.FC = () => {
     <div className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-4xl font-extrabold text-[#0F172A] mb-4">How RIWA Works</h1>
+          <h1 className="text-4xl font-extrabold text-[#0F172A] mb-4">How RiWA Works</h1>
           <p className="text-xl text-[#475569]">
             From a citizen's complaint to a city-wide intelligence dashboard.
           </p>
@@ -22,7 +22,7 @@ export const HowItWorksPage: React.FC = () => {
               </div>
               <h2 className="text-3xl font-bold text-[#0F172A]">Structuring the Unstructured</h2>
               <p className="text-[#475569] text-lg">
-                When a citizen submits a report, it's often messy, colloquial, or incomplete. RIWA's NLP engine instantly parses the text to extract key entities like location, severity, and category.
+                When a citizen submits a report, it's often messy, colloquial, or incomplete. RiWA's NLP engine instantly parses the text to extract key entities like location, severity, and category.
               </p>
               <ul className="space-y-2">
                 <li className="flex items-center gap-2 text-slate-600"><CheckCircle className="w-5 h-5 text-green-500" /> Automatically categorizes the issue</li>
@@ -53,7 +53,7 @@ export const HowItWorksPage: React.FC = () => {
               </div>
               <h2 className="text-3xl font-bold text-[#0F172A]">Connecting the Dots</h2>
               <p className="text-[#475569] text-lg">
-                Multiple citizens often report the same issue. Instead of overwhelming the dashboard with duplicates, RIWA fuses related reports together based on time, location, and semantic similarity.
+                Multiple citizens often report the same issue. Instead of overwhelming the dashboard with duplicates, RiWA fuses related reports together based on time, location, and semantic similarity.
               </p>
               <ul className="space-y-2">
                 <li className="flex items-center gap-2 text-slate-600"><CheckCircle className="w-5 h-5 text-cyan-500" /> Reduces noise for authorities</li>
@@ -81,7 +81,7 @@ export const HowItWorksPage: React.FC = () => {
               </div>
               <h2 className="text-3xl font-bold text-[#0F172A]">Focus on What Matters</h2>
               <p className="text-[#475569] text-lg">
-                Not all incidents are created equal. RIWA calculates a dynamic priority score based on the number of reports, the predicted impact, and historical context.
+                Not all incidents are created equal. RiWA calculates a dynamic priority score based on the number of reports, the predicted impact, and historical context.
               </p>
             </div>
             <div className="flex-1 bg-white p-6 rounded-xl shadow-lg border border-slate-200 text-center">

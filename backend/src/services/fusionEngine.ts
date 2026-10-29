@@ -3,9 +3,62 @@ import {
   CivicCategory,
   FusionDecision,
   FusionScoreBreakdown,
+  IncidentPriority,
   IncidentRecord,
+  IncidentStatus,
 } from '../types/index.js';
 import { calculateTextSimilarity, cosineSimilarity } from './embeddingService.js';
+
+// Persistent infrastructure categories where defects remain physically present until repaired
+export const PERSISTENT_INFRASTRUCTURE_CATEGORIES: ReadonlySet<CivicCategory> = new Set([
+  'road_damage',
+  'garbage',
+  'drainage',
+]);
+
+// Active incident lifecycle statuses indicating the defect is still unresolved
+export const ACTIVE_INCIDENT_STATUSES: ReadonlySet<IncidentStatus> = new Set([
+  'OPEN',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'REOPENED',
+]);
+
+// Maximum candidate lookback for active persistent infrastructure defects (30 days / 720 hours)
+export const PERSISTENT_MAX_TIME_HOURS = 720;
+
+/**
+ * Determines whether a candidate incident is temporally eligible.
+ * - Resolved/Closed incidents: strictly capped at ENV.FUSION_MAX_TIME_HOURS (48h)
+ * - Transient categories (electrical, other): strictly capped at ENV.FUSION_MAX_TIME_HOURS (48h)
+ * - Active persistent infrastructure defects: allowed up to PERSISTENT_MAX_TIME_HOURS (720h / 30 days)
+ */
+export const isCandidateWithinTimeWindow = (
+  complaintTime: Date,
+  incidentTime: Date,
+  category?: CivicCategory | null,
+  status?: IncidentStatus | null,
+  marginMultiplier: number = 1.0,
+  defaultMaxHours: number = ENV.FUSION_MAX_TIME_HOURS
+): { isWithinWindow: boolean; diffHours: number; maxHours: number; isPersistentActive: boolean } => {
+  const diffHours = Math.abs(complaintTime.getTime() - incidentTime.getTime()) / (1000 * 60 * 60);
+  const isPersistentActive = Boolean(
+    category &&
+    PERSISTENT_INFRASTRUCTURE_CATEGORIES.has(category) &&
+    status &&
+    ACTIVE_INCIDENT_STATUSES.has(status)
+  );
+
+  const baseMaxHours = isPersistentActive ? PERSISTENT_MAX_TIME_HOURS : defaultMaxHours;
+  const maxHours = baseMaxHours * marginMultiplier;
+
+  return {
+    isWithinWindow: diffHours < maxHours,
+    diffHours,
+    maxHours,
+    isPersistentActive,
+  };
+};
 
 // Haversine formula for distance in kilometers
 export const calculateDistanceKm = (
@@ -135,10 +188,10 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
     };
   }
 
-  let bestMatch: {
+  const candidateMatches: Array<{
     incident: IncidentRecord;
     breakdown: FusionScoreBreakdown;
-  } | null = null;
+  }> = [];
 
   // Evaluate ALL candidate incidents across the search space
   for (const incident of candidateIncidents) {
@@ -192,18 +245,28 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
     // Signal B: Location Proximity
     const locationScore = calculateLocationScore(distanceKm, ENV.FUSION_MAX_DISTANCE_KM);
 
-    // 3. HARD GATE: Temporal Candidate Window (48h)
+    // 3. HARD GATE: Temporal Candidate Window (Status-Aware Lifecycle Fusion)
     const rawTime = (incident as any).updatedAt || (incident as any).updated_at || (incident as any).createdAt || (incident as any).created_at || new Date();
     const incidentTime = new Date(rawTime);
-    const diffHours = Math.abs(createdAt.getTime() - incidentTime.getTime()) / (1000 * 60 * 60);
-    if (diffHours >= ENV.FUSION_MAX_TIME_HOURS) {
+    
+    const timeCheck = isCandidateWithinTimeWindow(
+      createdAt,
+      incidentTime,
+      incident.category,
+      incident.status,
+      1.0,
+      ENV.FUSION_MAX_TIME_HOURS
+    );
+
+    if (!timeCheck.isWithinWindow) {
       console.log(`🔍 [Fusion Candidate Debug]
   complaint_code: ${complaintCode || 'NEW'}
   candidate_incident_code: ${incCode} ("${incident.title}")
   distance_km: ${distanceKm.toFixed(3)}
-  time_difference_hours: ${diffHours.toFixed(2)}
+  time_difference_hours: ${timeCheck.diffHours.toFixed(2)} (limit: ${timeCheck.maxHours}h, persistent_active: ${timeCheck.isPersistentActive})
   category_new: ${category}
   category_incident: ${incident.category}
+  status: ${incident.status}
   semantic_score: 0.00
   location_score: ${locationScore.toFixed(3)}
   time_score: 0.00
@@ -214,8 +277,11 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
       continue; // Outside candidate temporal window
     }
 
-    // Signal C: Temporal Proximity Score (smooth non-linear decay)
-    const timeScore = calculateTimeScore(createdAt, incidentTime, ENV.FUSION_MAX_TIME_HOURS);
+    // Signal C: Temporal Proximity Score (smooth non-linear decay over appropriate window)
+    const effectiveMaxTimeHours = timeCheck.isPersistentActive
+      ? PERSISTENT_MAX_TIME_HOURS
+      : ENV.FUSION_MAX_TIME_HOURS;
+    const timeScore = calculateTimeScore(createdAt, incidentTime, effectiveMaxTimeHours);
 
     // Signal A: Semantic Similarity (Primary: Vector Cosine Similarity against members + centroid)
     let semanticScore = 0.5;
@@ -264,9 +330,10 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
   complaint_code: ${complaintCode || 'NEW'}
   candidate_incident_code: ${incCode} ("${incident.title}")
   distance_km: ${distanceKm.toFixed(3)} (~${(distanceKm * 1000).toFixed(0)}m)
-  time_difference_hours: ${diffHours.toFixed(2)}
+  time_difference_hours: ${timeCheck.diffHours.toFixed(2)} (window: ${effectiveMaxTimeHours}h, persistent: ${timeCheck.isPersistentActive})
   category_new: ${category}
   category_incident: ${incident.category}
+  status: ${incident.status}
   semantic_score: ${semanticScore.toFixed(3)} (${(semanticScore * 100).toFixed(1)}%)
   location_score: ${locationScore.toFixed(3)}
   time_score: ${timeScore.toFixed(3)}
@@ -288,25 +355,48 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
       explanation,
     };
 
-    if (!bestMatch || currentResult.fusionScore > bestMatch.breakdown.fusionScore) {
-      bestMatch = {
+    if (currentResult.decision !== 'SEPARATE') {
+      candidateMatches.push({
         incident,
         breakdown: currentResult,
+      });
+    }
+  }
+
+  if (candidateMatches.length === 0) {
+    return {
+      semanticScore: 0,
+      locationScore: 0,
+      timeScore: 0,
+      categoryScore: 0,
+      fusionScore: 0,
+      decision: 'SEPARATE',
+      explanation: 'No related incident found exceeding the fusion threshold. A new civic incident will be created.',
+    };
+  }
+
+  // Sort candidate matches by fusionScore descending
+  candidateMatches.sort((a, b) => b.breakdown.fusionScore - a.breakdown.fusionScore);
+
+  const topMatch = candidateMatches[0];
+
+  // Tie-breaker: If multiple active candidates both qualify for AUTO_MERGE within close score margin (0.03),
+  // do not arbitrarily merge; demote to REVIEW for safe human verification.
+  if (candidateMatches.length > 1 && topMatch.breakdown.decision === 'AUTO_MERGE') {
+    const runnerUp = candidateMatches[1];
+    if (
+      runnerUp.breakdown.decision === 'AUTO_MERGE' &&
+      topMatch.breakdown.fusionScore - runnerUp.breakdown.fusionScore < 0.03
+    ) {
+      const topCode = topMatch.incident.incidentCode || topMatch.incident.id;
+      const runnerCode = runnerUp.incident.incidentCode || runnerUp.incident.id;
+      return {
+        ...topMatch.breakdown,
+        decision: 'REVIEW',
+        explanation: `Multiple plausible active incident matches detected (${topCode} at ${(topMatch.breakdown.fusionScore * 100).toFixed(0)}% and ${runnerCode} at ${(runnerUp.breakdown.fusionScore * 100).toFixed(0)}%). Demoted to human review to prevent arbitrary auto-merge.`,
       };
     }
   }
 
-  if (bestMatch && bestMatch.breakdown.decision !== 'SEPARATE') {
-    return bestMatch.breakdown;
-  }
-
-  return {
-    semanticScore: 0,
-    locationScore: 0,
-    timeScore: 0,
-    categoryScore: 0,
-    fusionScore: 0,
-    decision: 'SEPARATE',
-    explanation: 'No related incident found exceeding the fusion threshold. A new civic incident will be created.',
-  };
+  return topMatch.breakdown;
 };

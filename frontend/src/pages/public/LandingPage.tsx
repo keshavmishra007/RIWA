@@ -155,7 +155,7 @@ export const LandingPage: React.FC = () => {
 
               {/* Subtitle */}
               <p className="text-base sm:text-lg text-slate-300 max-w-2xl leading-relaxed mx-auto lg:mx-0">
-                In Rewa, 50 citizens might report the same pothole or flooded street. Traditional portals drown in duplicate noise. RIWA’s multi-signal AI understands raw complaints, fuses related signals into unified incidents, and coordinates municipal action.
+                In Rewa, 50 citizens might report the same pothole or flooded street. Traditional portals drown in duplicate noise. RiWA’s multi-signal AI understands raw complaints, fuses related signals into unified incidents, and coordinates municipal action.
               </p>
 
               {/* Action Buttons */}
@@ -168,7 +168,7 @@ export const LandingPage: React.FC = () => {
                 </Link>
                 <a href="#transformation" className="w-full sm:w-auto">
                   <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 font-medium px-6 py-3.5 rounded-xl transition-all cursor-pointer">
-                    <span>How RIWA Works</span>
+                    <span>How RiWA Works</span>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </button>
                 </a>
@@ -298,14 +298,14 @@ export const LandingPage: React.FC = () => {
           {/* Section Header */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
-              RIWA Core Innovation
+              RiWA Core Innovation
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
               A complaint is a signal.{' '}
               <span className="text-blue-600 block sm:inline">An incident is what the city needs to understand.</span>
             </h2>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-              Traditional municipal portals collect dozens of disconnected tickets for the same problem. RIWA treats citizen submissions as sensory signals, using multidimensional AI to fuse them into one verified physical incident.
+              Traditional municipal portals collect dozens of disconnected tickets for the same problem. RiWA treats citizen submissions as sensory signals, using multidimensional AI to fuse them into one verified physical incident.
             </p>
           </div>
 
@@ -403,7 +403,7 @@ export const LandingPage: React.FC = () => {
 
                   <div>
                     <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-700">Temporal Gating (&lt;12 hrs)</span>
+                      <span className="text-slate-700">Temporal Gating (&lt;48 hrs)</span>
                       <span className="text-blue-600 font-mono">1.5 hrs</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -520,7 +520,7 @@ export const LandingPage: React.FC = () => {
                   <h3 className="text-2xl font-bold text-slate-900 mt-1">UNDERSTAND</h3>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Citizen reports are messy, colloquial, and often in Hindi/Hinglish. RIWA’s NLP pipeline extracts categories, evaluates danger hazards, and indexes location landmarks from unstructured text.
+                  Citizen reports are messy, colloquial, and often in Hindi/Hinglish. RiWA’s NLP pipeline extracts categories, evaluates danger hazards, and indexes location landmarks from unstructured text.
                 </p>
                 
                 <div className="pt-2 space-y-2 text-xs">
@@ -543,7 +543,7 @@ export const LandingPage: React.FC = () => {
             {/* Pillar 2: FUSE (Flagship Highlight) */}
             <div className="relative bg-white rounded-2xl border-2 border-blue-600 p-8 shadow-lg flex flex-col justify-between ring-4 ring-blue-500/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-600 text-white shadow-sm">
-                RIWA Differentiator
+                RiWA Differentiator
               </div>
 
               <div className="space-y-5">
@@ -557,7 +557,7 @@ export const LandingPage: React.FC = () => {
                   <h3 className="text-2xl font-bold text-slate-900 mt-1">FUSE</h3>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  The heart of RIWA. High-dimensional vector embeddings, Haversine spatial radius gating (&lt;500m), and rolling time windows cluster duplicate reports into explainable incidents with zero ticket spam.
+                  The heart of RiWA. High-dimensional vector embeddings, Haversine spatial radius gating (&lt;500m), and rolling time windows cluster duplicate reports into explainable incidents with zero ticket spam.
                 </p>
 
                 <div className="pt-2 space-y-2 text-xs">
@@ -625,7 +625,7 @@ export const LandingPage: React.FC = () => {
               End-To-End Architecture
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight">
-              How RIWA Works in 4 Steps
+              How RiWA Works in 4 Steps
             </h2>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
               From the moment a citizen spots a hazard on Rewa's streets to municipal crew resolution.

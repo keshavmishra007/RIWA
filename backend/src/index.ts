@@ -58,7 +58,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
-    service: 'RIWA Civic Intelligence API',
+    service: 'RiWA Civic Intelligence API',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
@@ -70,7 +70,7 @@ app.use('/api', apiRouter);
 // Root route
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    name: 'RIWA — Rewa Intelligence for Watch & Action API',
+    name: 'RiWA — Rewa Intelligence for Work and Action API',
     descriptor: 'AI-Powered Civic Incident Intelligence Platform',
     version: '1.0.0',
     endpoints: {
@@ -103,7 +103,7 @@ const HOST = '0.0.0.0';
 
 const server = app.listen(PORT, HOST, () => {
   console.log('====================================================');
-  console.log(`🚀 RIWA Backend running on ${HOST}:${PORT}`);
+  console.log(`🚀 RiWA Backend running on ${HOST}:${PORT}`);
   console.log(`📡 Environment: ${ENV.NODE_ENV}`);
   console.log(`🔗 API Base: http://${HOST}:${PORT}/api`);
   console.log('====================================================');

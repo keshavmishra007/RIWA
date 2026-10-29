@@ -27,3 +27,6 @@ Thumbs.db
 
 # Temporary diagnostic/debug scratch scripts
 tests/
+
+# Local shadow evaluation output
+data/

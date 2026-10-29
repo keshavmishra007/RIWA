@@ -32,7 +32,7 @@ export const analyzeCitizenReport = async (description: string): Promise<AIAnaly
       });
 
       const prompt = `
-You are the AI Intelligence Engine of RIWA (Rewa Intelligence for Watch & Action), an urban civic incident intelligence platform for Rewa, Madhya Pradesh.
+You are the AI Intelligence Engine of RiWA (Rewa Intelligence for Work and Action), an urban civic incident intelligence platform for Rewa, Madhya Pradesh.
 Analyze the following citizen report (which may be in English, Hindi, or Hinglish):
 
 Citizen Report:

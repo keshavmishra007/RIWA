@@ -71,10 +71,10 @@ export const AuthoritySidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMo
         {/* Logo area */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#E2E8F0]">
           <div className="flex items-center overflow-hidden whitespace-nowrap">
-            <span className="font-bold text-xl text-[#2563EB]">RIWA</span>
+            <span className="font-bold text-xl text-[#2563EB]">RiWA</span>
             {!isCollapsed && (
-              <span className="ml-2 text-sm text-[#64748B] font-medium truncate">
-                Rewa Civic Intelligence
+              <span className="ml-2 text-sm text-[#64748B] font-medium truncate" title="Rewa Intelligence for Work and Action">
+                Rewa Intelligence for Work and Action
               </span>
             )}
           </div>

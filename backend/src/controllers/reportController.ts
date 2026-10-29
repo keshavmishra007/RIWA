@@ -13,6 +13,7 @@ import {
   calculateCategoryScore,
   calculateDistanceKm,
   evaluateFusion,
+  isCandidateWithinTimeWindow,
 } from '../services/fusionEngine.js';
 import { evaluatePriority } from '../services/priorityEngine.js';
 import {
@@ -68,11 +69,18 @@ export const processComplaintAssociation = async (
     const distKm = calculateDistanceKm(latitude, longitude, inc.latitude, inc.longitude);
     if (distKm > ENV.FUSION_MAX_DISTANCE_KM * 1.5) return false;
 
-    // Temporal candidate gate (1.5x margin for pre-filtering)
+    // Temporal candidate gate (Status-aware candidate retrieval with 1.5x margin for pre-filtering)
     const rawTime = (inc as any).updatedAt || (inc as any).createdAt || new Date();
     const incTime = new Date(rawTime);
-    const diffHours = Math.abs(complaintCreatedAt.getTime() - incTime.getTime()) / (1000 * 60 * 60);
-    if (diffHours >= ENV.FUSION_MAX_TIME_HOURS * 1.5) return false;
+    const timeCheck = isCandidateWithinTimeWindow(
+      complaintCreatedAt,
+      incTime,
+      inc.category,
+      inc.status,
+      1.5,
+      ENV.FUSION_MAX_TIME_HOURS
+    );
+    if (!timeCheck.isWithinWindow) return false;
 
     return true;
   });
@@ -123,6 +131,13 @@ export const processComplaintAssociation = async (
     );
     const newReportCount = isAlreadyLinked ? existingReports.length : existingReports.length + 1;
 
+    // Temporal delta check for repeat report signal
+    const rawIncTime = (existingIncident as any).updatedAt || (existingIncident as any).createdAt || new Date();
+    const incTime = new Date(rawIncTime);
+    const diffHours = Math.abs(complaintCreatedAt.getTime() - incTime.getTime()) / (1000 * 60 * 60);
+    const isRepeatReport = diffHours >= ENV.FUSION_MAX_TIME_HOURS;
+    const diffDays = Math.floor(diffHours / 24);
+
     // Re-evaluate Priority & Trend
     const priorityEval = evaluatePriority({
       baseSeverity: aiAnalysis.severity,
@@ -133,11 +148,18 @@ export const processComplaintAssociation = async (
       recentReportsInLastHour: 3,
     });
 
+    // Update target incident trend: Repeat reports after >48h signal chronic persistence;
+    // update trend to RISING if it was STABLE (without artificially increasing severity).
+    let targetTrend = priorityEval.trend;
+    if (isRepeatReport && targetTrend === 'STABLE') {
+      targetTrend = 'RISING';
+    }
+
     // Update target Incident
     await db.updateIncident(existingIncident.id, {
       reportCount: newReportCount,
       priority: priorityEval.priority,
-      trend: priorityEval.trend,
+      trend: targetTrend,
       fusionConfidence: fusionResult.fusionScore,
     });
 
@@ -159,12 +181,19 @@ export const processComplaintAssociation = async (
       createdAt: new Date().toISOString(),
     });
 
-    await db.addStatusLog({
-      incidentId: existingIncident.id,
-      status: existingIncident.status,
-      actorName: 'RIWA Fusion Engine',
-      note: `Citizen report ${reportCode} auto-fused into incident (Confidence: ${(fusionResult.fusionScore * 100).toFixed(0)}%). Priority: ${priorityEval.priority}.`,
-    });
+    // Record status log only if this is NOT an idempotent retry of an already-linked report
+    if (!isAlreadyLinked) {
+      const logNote = isRepeatReport
+        ? `Repeat citizen report ${reportCode} merged after ${diffDays} days (${diffHours.toFixed(1)}h). Chronic issue remains unresolved. Trend: ${targetTrend}.`
+        : `Citizen report ${reportCode} auto-fused into incident (Confidence: ${(fusionResult.fusionScore * 100).toFixed(0)}%). Priority: ${priorityEval.priority}.`;
+
+      await db.addStatusLog({
+        incidentId: existingIncident.id,
+        status: existingIncident.status,
+        actorName: 'RiWA Fusion Engine',
+        note: logNote,
+      });
+    }
   } else {
     // NEW INCIDENT CREATION (REVIEW or SEPARATE)
     // If complaint was already linked to an incident (e.g. retry), return it directly
@@ -251,7 +280,7 @@ export const processComplaintAssociation = async (
     await db.addStatusLog({
       incidentId: newIncident.id,
       status: 'OPEN',
-      actorName: 'RIWA AI',
+      actorName: 'RiWA AI',
       note: initNote,
     });
   }
