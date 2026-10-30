@@ -22,7 +22,7 @@ export const PrivacyPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Privacy Policy</h1>
               <p className="text-slate-500 text-sm mt-1">
-                RiWA — Rewa Intelligence for Work and Action • Smart Rewa 2030 Initiative
+                RiWA — Rewa Intelligence For Watch and Action • Smart Rewa 2030 Initiative
               </p>
             </div>
           </div>
@@ -35,7 +35,7 @@ export const PrivacyPage: React.FC = () => {
               1. Our Civic Data Commitment
             </h2>
             <p>
-              RiWA (Rewa Intelligence for Work and Action) is a civic governance platform engineered to improve municipal transparency and emergency civic response across Rewa, Madhya Pradesh. We collect only the information strictly necessary to identify, verify, and resolve public infrastructure issues.
+              RiWA (Rewa Intelligence For Watch and Action) is a civic governance platform engineered to improve municipal transparency and emergency civic response across Rewa, Madhya Pradesh. We collect only the information strictly necessary to identify, verify, and resolve public infrastructure issues.
             </p>
             <p className="font-medium text-slate-900">
               We never sell, monetize, or share citizen personal information with commercial advertisers or third-party brokers.

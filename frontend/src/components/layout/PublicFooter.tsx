@@ -62,7 +62,7 @@ export const PublicFooter: React.FC = () => {
               </span>
             </Link>
             <p className="text-sm text-[#94A3B8] leading-relaxed">
-              Rewa Intelligence for Work and Action. Fusing scattered citizen reports into clear, explainable civic incidents to accelerate municipal action.
+              Rewa Intelligence For Watch and Action. Fusing scattered citizen reports into clear, explainable civic incidents to accelerate municipal action.
             </p>
             <div className="pt-2 flex flex-wrap gap-2">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#1E293B] text-[#06B6D4] border border-[#334155]">
@@ -197,7 +197,7 @@ export const PublicFooter: React.FC = () => {
         {/* Bottom Attribution Bar */}
         <div className="mt-12 pt-8 border-t border-[#334155] flex flex-col md:flex-row justify-between items-center text-xs text-[#94A3B8] gap-4">
           <p>
-            &copy; {new Date().getFullYear()} RiWA — Rewa Intelligence for Work and Action. All rights reserved.
+            &copy; {new Date().getFullYear()} RiWA — Rewa Intelligence For Watch and Action. All rights reserved.
           </p>
           <div className="flex items-center gap-3">
             <span className="text-slate-400">

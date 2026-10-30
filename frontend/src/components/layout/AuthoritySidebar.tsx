@@ -73,8 +73,8 @@ export const AuthoritySidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMo
           <div className="flex items-center overflow-hidden whitespace-nowrap">
             <span className="font-bold text-xl text-[#2563EB]">RiWA</span>
             {!isCollapsed && (
-              <span className="ml-2 text-sm text-[#64748B] font-medium truncate" title="Rewa Intelligence for Work and Action">
-                Rewa Intelligence for Work and Action
+              <span className="ml-2 text-sm text-[#64748B] font-medium truncate" title="Rewa Intelligence For Watch and Action">
+                Rewa Intelligence For Watch and Action
               </span>
             )}
           </div>

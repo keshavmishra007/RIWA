@@ -1,5 +1,5 @@
 -- ====================================================================
--- RiWA — Rewa Intelligence for Work and Action
+-- RiWA — Rewa Intelligence For Watch and Action
 -- Database Schema Migration for Supabase / PostgreSQL
 -- ====================================================================
 

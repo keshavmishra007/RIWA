@@ -22,7 +22,7 @@ export const TermsPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Terms of Service</h1>
               <p className="text-slate-500 text-sm mt-1">
-                RiWA — Rewa Intelligence for Work and Action • Smart Rewa 2030 Initiative
+                RiWA — Rewa Intelligence For Watch and Action • Smart Rewa 2030 Initiative
               </p>
             </div>
           </div>

@@ -17,7 +17,7 @@ export const PublicNavbar: React.FC = () => {
                 <span className="text-[#3B82F6]">RiWA</span>
               </span>
               <span className="hidden sm:inline-flex items-center text-xs lg:text-sm font-medium text-slate-400 group-hover:text-slate-200 transition-colors">
-                (Rewa Intelligence for Work and Action)
+                (Rewa Intelligence For Watch and Action)
               </span>
             </Link>
           </div>

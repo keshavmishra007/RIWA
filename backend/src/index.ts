@@ -70,7 +70,7 @@ app.use('/api', apiRouter);
 // Root route
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    name: 'RiWA — Rewa Intelligence for Work and Action API',
+    name: 'RiWA — Rewa Intelligence For Watch and Action API',
     descriptor: 'AI-Powered Civic Incident Intelligence Platform',
     version: '1.0.0',
     endpoints: {

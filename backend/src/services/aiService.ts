@@ -32,51 +32,65 @@ export const analyzeCitizenReport = async (description: string): Promise<AIAnaly
       });
 
       const prompt = `
-You are the AI Intelligence Engine of RiWA (Rewa Intelligence for Work and Action), an urban civic incident intelligence platform for Rewa, Madhya Pradesh.
+You are the AI Intelligence Engine of RiWA (Rewa Intelligence For Watch and Action), an urban civic incident intelligence platform for Rewa, Madhya Pradesh.
 Analyze the following citizen report (which may be in English, Hindi, or Hinglish):
 
 Citizen Report:
 "${description}"
 
-Perform:
+Perform Root-Cause-First Civic Classification:
+Distinguish the root physical cause from secondary consequences (such as traffic jams, vehicle risks, commuter delays, or accidents). Always classify according to what is physically defective and requires physical repair:
+
 1. Category Classification: one of ['drainage', 'garbage', 'road_damage', 'electrical_hazard', 'other']
-   - 'drainage': clogged drains, sewer overflows, waterlogging, standing water, open drains
-   - 'garbage': overflowing dumpsters, uncollected trash, illegal garbage dumps, rotten waste, scattered garbage, plastic/polyethene waste, hospital/school campus garbage, public litter
-   - 'road_damage': potholes, broken road surface, sinkholes, road collapse (DO NOT classify traffic jams as road damage!)
-   - 'electrical_hazard': live wires, sparking wires, dangling power lines, broken streetlights
-   - 'other': traffic congestion, traffic jams, broken traffic signals, stray animals, noise, encroachment, public infrastructure not fitting above 4 categories. If uncertain, classify as 'other'.
-2. Subcategory (e.g. 'waterlogging', 'blocked_drain', 'overflowing_bin', 'deep_pothole', 'sparking_wire', 'traffic_congestion', 'general_civic')
+   - 'drainage': clogged drains, sewer overflows, waterlogging, standing water, accumulated rainwater, open drains. (Even if traffic or vehicles are slowed down or commuters face risk, the root physical defect is drainage/waterlogging!)
+   - 'road_damage': potholes, broken road surface, asphalt craters, sinkholes, road collapse, damaged road patches. (Even if causing heavy traffic, vehicle damage, or commuter risk, the root physical defect is road damage!)
+   - 'garbage': overflowing dumpsters, uncollected trash, illegal garbage dumps, rotten waste, scattered garbage, plastic/polyethene waste, hospital/school campus garbage, public litter. (Even if blocking a road, the root defect is garbage!)
+   - 'electrical_hazard': live wires, sparking wires, dangling power lines, broken streetlights.
+   - 'other':
+     * Traffic congestion WITHOUT road defect: traffic congestion, traffic jams, broken traffic signals, illegal parking, gridlock.
+     * Animal issues: stray cows, cattle roaming, animals obstructing roads or public spaces, sick or injured animals.
+     * General civic: noise, encroachment, miscellaneous public infrastructure not fitting above.
+     * If uncertain or ambiguous, classify as 'other' and set needsHumanReview to true.
+
+2. Subcategory (e.g. 'waterlogging', 'blocked_drain', 'overflowing_bin', 'deep_pothole', 'sparking_wire', 'traffic_congestion', 'stray_cattle', 'general_civic')
+
 3. Severity Assessment:
    - 'CRITICAL': life hazard, live electric wire, sparking near school/crowds, massive road collapse, hospital access blocked
    - 'HIGH': heavy waterlogging blocking vehicles, large potholes on main roads, major traffic jams, bio/chemical waste
    - 'MEDIUM': standard garbage pile, dark streetlights, potholes on residential streets, moderate traffic
    - 'LOW': minor litter, non-urgent maintenance
+
 4. Department Routing (must choose strictly from these 7 municipal departments):
    - "Municipal Engineering": Blocked drains, drainage infrastructure, sewers, waterlogging.
    - "Sanitation": Garbage dumps, overflowing bins, uncollected waste, public litter.
    - "Public Works": Potholes, damaged roads, broken tarmac, structural road damage.
    - "Electrical": Broken streetlights, live wires, sparking wires, electrical hazards.
    - "Animal Control": Stray cows, cattle roaming, animals obstructing roads or public spaces, sick or injured animals.
-   - "Traffic Police": Traffic congestion, traffic jams, signal failures, illegal parking, road obstructions.
+   - "Traffic Police": Pure traffic congestion, traffic jams, signal failures, illegal parking, road obstructions (WITHOUT underlying road damage or flooding).
    - "Other Civic Services": Miscellaneous civic complaints not fitting the six departments above, or ambiguous reports requiring human review.
-   If cows or animals are blocking traffic, set department to "Animal Control" and supportingDepartment to "Traffic Police".
+
+   Secondary Impact Routing Rules:
+   - If road damage or waterlogging or garbage causes traffic delay/congestion: set department to the primary repair department ("Public Works", "Municipal Engineering", or "Sanitation") and supportingDepartment to "Traffic Police".
+   - If cows or animals are blocking traffic: set department to "Animal Control" and supportingDepartment to "Traffic Police".
+   - If accumulated rainwater fills potholes or damages roads: set department to "Municipal Engineering" and supportingDepartment to "Public Works".
+
 5. Multilingual normalization into a concise, formal English summary (1-2 sentences).
-6. Extraction of keywords, hazards (e.g. 'sparking', 'exposed_wire', 'deep_water', 'traffic_gridlock', 'animal_hazard'), and sensitive locations ('school', 'hospital', 'market', 'bus_stand').
+6. Extraction of keywords, hazards (e.g. 'sparking', 'exposed_wire', 'deep_water', 'traffic_gridlock', 'animal_hazard', 'submerged_potholes', 'vehicle_risk'), and sensitive locations ('school', 'hospital', 'market', 'bus_stand').
 7. Confidence score between 0.0 and 1.0.
 
 Return strictly JSON matching this structure:
 {
-  "category": "other",
-  "subcategory": "traffic_congestion",
+  "category": "road_damage",
+  "subcategory": "potholes",
   "severity": "HIGH",
-  "summary": "...",
-  "department": "Traffic Police",
-  "supportingDepartment": "Animal Control",
+  "summary": "Deep potholes on main road creating hazardous conditions for commuter traffic.",
+  "department": "Public Works",
+  "supportingDepartment": "Traffic Police",
   "needsHumanReview": false,
   "confidence": 0.95,
-  "keywords": ["traffic", "hospital"],
-  "hazards": ["gridlock"],
-  "sensitiveLocations": ["hospital", "market"]
+  "keywords": ["potholes", "traffic", "road"],
+  "hazards": ["traffic_disruption", "vehicle_hazard"],
+  "sensitiveLocations": ["market"]
 }
 `;
 
@@ -127,15 +141,29 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
   let supportingDepartment: string | undefined = undefined;
   let needsHumanReview = false;
 
-  // Classification rules
+  // Classification rules (Root-Cause-First: physical defects take precedence over secondary traffic impacts)
+  const isTrafficSignal =
+    lower.includes('traffic light') ||
+    lower.includes('traffic signal') ||
+    lower.includes('red light') ||
+    lower.includes('ट्रैफिक लाइट') ||
+    lower.includes('सिग्नल');
+
   if (
-    lower.includes('wire') ||
-    lower.includes('spark') ||
-    lower.includes('light') ||
-    lower.includes('electric') ||
-    lower.includes('bijli') ||
-    lower.includes('pole') ||
-    lower.includes('current')
+    !isTrafficSignal &&
+    (lower.includes('wire') ||
+      lower.includes('spark') ||
+      lower.includes('streetlight') ||
+      lower.includes('street light') ||
+      lower.includes('street lighting') ||
+      (lower.includes('light') && !lower.includes('traffic')) ||
+      lower.includes('electric') ||
+      lower.includes('bijli') ||
+      lower.includes('बिजली') ||
+      lower.includes('तार') ||
+      lower.includes('करंट') ||
+      lower.includes('pole') ||
+      lower.includes('current'))
   ) {
     category = 'electrical_hazard';
     department = 'Electrical';
@@ -150,27 +178,109 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
   } else if (
     lower.includes('water') ||
     lower.includes('paani') ||
+    lower.includes('पानी') ||
+    lower.includes('जलभराव') ||
     lower.includes('flood') ||
+    lower.includes('बाढ़') ||
     lower.includes('drain') ||
     lower.includes('nala') ||
     lower.includes('naali') ||
+    lower.includes('नाला') ||
+    lower.includes('नाली') ||
     lower.includes('waterlog') ||
     lower.includes('sewer') ||
+    lower.includes('सीवर') ||
     lower.includes('sewage') ||
-    lower.includes('overflow')
+    lower.includes('overflow') ||
+    lower.includes('rainfall') ||
+    lower.includes('barish') ||
+    lower.includes('बारिश')
   ) {
+    // 1. Waterlogging & Drainage Infrastructure (Root Cause: Municipal Engineering)
     category = 'drainage';
     department = 'Municipal Engineering';
-    subcategory = lower.includes('drain') || lower.includes('nala') || lower.includes('naali') ? 'drain_overflow' : 'waterlogging';
+    subcategory =
+      lower.includes('drain') || lower.includes('nala') || lower.includes('naali') || lower.includes('नाला')
+        ? 'drain_overflow'
+        : 'waterlogging';
     if (lower.includes('flood') || lower.includes('submerged') || lower.includes('stuck') || lower.includes('deep')) {
       severity = 'HIGH';
       hazards.push('submerged_road');
     }
     keywords.push('waterlogging', 'drainage');
+
+    // Secondary consequence detection
+    if (
+      lower.includes('pothole') ||
+      lower.includes('gaddha') ||
+      lower.includes('गड्ढा') ||
+      lower.includes('गड्ढे') ||
+      lower.includes('road patch') ||
+      lower.includes('road repair') ||
+      lower.includes('damaged road')
+    ) {
+      supportingDepartment = 'Public Works';
+      hazards.push('submerged_potholes');
+    }
+    if (lower.includes('traffic') || lower.includes('jam') || lower.includes('जाम') || lower.includes('vehicle') || lower.includes('commuter')) {
+      if (!supportingDepartment) {
+        supportingDepartment = 'Traffic Police';
+      }
+      hazards.push('vehicle_risk');
+    }
+  } else if (
+    lower.includes('pothole') ||
+    lower.includes('gaddha') ||
+    lower.includes('गड्ढा') ||
+    lower.includes('गड्ढे') ||
+    lower.includes('broken road') ||
+    lower.includes('broken tarmac') ||
+    lower.includes('sadak kharab') ||
+    lower.includes('टूटी सड़क') ||
+    lower.includes('sinkhole') ||
+    lower.includes('road repair') ||
+    lower.includes('road patch') ||
+    lower.includes('damaged road') ||
+    ((lower.includes('road') || lower.includes('sadak') || lower.includes('सड़क')) &&
+      (lower.includes('damage') ||
+        lower.includes('kharab') ||
+        lower.includes('खराब') ||
+        lower.includes('crack') ||
+        lower.includes('repaire') ||
+        lower.includes('repair')))
+  ) {
+    // 2. Road Damage & Defects (Root Cause: Public Works) - Evaluated BEFORE pure traffic congestion
+    category = 'road_damage';
+    department = 'Public Works';
+    subcategory = lower.includes('sinkhole') ? 'sinkhole' : 'potholes';
+    severity =
+      lower.includes('nh-7') || lower.includes('highway') || lower.includes('bypass') || lower.includes('deep')
+        ? 'HIGH'
+        : 'MEDIUM';
+    keywords.push('pothole', 'road');
+
+    // Secondary consequence detection
+    if (
+      lower.includes('traffic') ||
+      lower.includes('jam') ||
+      lower.includes('जाम') ||
+      lower.includes('congestion') ||
+      lower.includes('vehicle') ||
+      lower.includes('commuter')
+    ) {
+      supportingDepartment = 'Traffic Police';
+      hazards.push('traffic_disruption');
+    }
+    if (lower.includes('water') || lower.includes('rain') || lower.includes('drain')) {
+      supportingDepartment = supportingDepartment || 'Municipal Engineering';
+      hazards.push('water_accumulation');
+    }
   } else if (
     lower.includes('garbage') ||
     lower.includes('kachra') ||
+    lower.includes('कचरा') ||
     lower.includes('kuda') ||
+    lower.includes('कूड़ा') ||
     lower.includes('dump') ||
     lower.includes('waste') ||
     lower.includes('dustbin') ||
@@ -180,26 +290,45 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     lower.includes('plastic') ||
     lower.includes('litter')
   ) {
+    // 3. Sanitation & Solid Waste (Root Cause: Sanitation)
     category = 'garbage';
     department = 'Sanitation';
     subcategory = 'waste_accumulation';
     severity = lower.includes('huge') || lower.includes('water body') || lower.includes('lake') ? 'HIGH' : 'MEDIUM';
     keywords.push('waste', 'sanitation');
+
+    // If garbage spills into the road or obstructs traffic
+    if (
+      lower.includes('road') ||
+      lower.includes('sadak') ||
+      lower.includes('सड़क') ||
+      lower.includes('traffic') ||
+      lower.includes('jam') ||
+      lower.includes('जाम') ||
+      lower.includes('block')
+    ) {
+      supportingDepartment = 'Traffic Police';
+      hazards.push('road_obstruction');
+    }
   } else if (
     lower.includes('cow') ||
     lower.includes('cattle') ||
     lower.includes('gaay') ||
+    lower.includes('गाय') ||
     lower.includes('gaye') ||
     lower.includes('saand') ||
+    lower.includes('सांड') ||
     lower.includes('bull') ||
     lower.includes('bovine') ||
     lower.includes('stray animal') ||
+    lower.includes('आवारा') ||
     lower.includes('stray dog') ||
+    lower.includes('कुत्ता') ||
     lower.includes('injured animal') ||
     lower.includes('sick animal') ||
     lower.includes('animal bite')
   ) {
-    // 5. Animal Control
+    // 4. Animal Control
     category = 'other';
     department = 'Animal Control';
     subcategory = lower.includes('injured') || lower.includes('sick') ? 'injured_animal' : 'stray_cattle';
@@ -208,42 +337,31 @@ const fallbackHeuristicAnalysis = (text: string, reason?: string): AIAnalysisRes
     hazards.push('animal_obstruction');
 
     // If cows or animals are also blocking traffic or on the road
-    if (lower.includes('traffic') || lower.includes('jam') || lower.includes('road') || lower.includes('sadak')) {
+    if (lower.includes('traffic') || lower.includes('jam') || lower.includes('जाम') || lower.includes('road') || lower.includes('sadak') || lower.includes('सड़क')) {
       supportingDepartment = 'Traffic Police';
+      hazards.push('traffic_disruption');
     }
   } else if (
     lower.includes('traffic') ||
     lower.includes('jam') ||
+    lower.includes('जाम') ||
     lower.includes('congestion') ||
+    lower.includes('भीड़') ||
     lower.includes('signal') ||
     lower.includes('traffic light') ||
     lower.includes('parking') ||
     lower.includes('gridlock') ||
     lower.includes('chakka jam')
   ) {
-    // 6. Traffic Police
+    // 5. Traffic Police (Pure traffic issues WITHOUT underlying road defect or drainage issue)
     category = 'other';
     department = 'Traffic Police';
     subcategory = lower.includes('signal') ? 'traffic_signal_fault' : 'traffic_congestion';
     severity = lower.includes('hospital') || lower.includes('emergency') || lower.includes('gridlock') ? 'HIGH' : 'MEDIUM';
     hazards.push('traffic_gridlock');
     keywords.push('traffic_police', 'congestion');
-  } else if (
-    lower.includes('pothole') ||
-    lower.includes('gaddha') ||
-    lower.includes('broken road') ||
-    lower.includes('broken tarmac') ||
-    lower.includes('sadak kharab') ||
-    lower.includes('sinkhole') ||
-    (lower.includes('road') && (lower.includes('damage') || lower.includes('crack') || lower.includes('repaire')))
-  ) {
-    category = 'road_damage';
-    department = 'Public Works';
-    subcategory = 'potholes';
-    severity = lower.includes('nh-7') || lower.includes('highway') || lower.includes('bypass') ? 'HIGH' : 'MEDIUM';
-    keywords.push('pothole', 'road');
   } else {
-    // 7. Other Civic Services (Miscellaneous / General civic / Ambiguous)
+    // 6. Other Civic Services (Miscellaneous / General civic / Ambiguous - requires human review)
     category = 'other';
     department = 'Other Civic Services';
     subcategory = 'general_civic';

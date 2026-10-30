@@ -61,8 +61,18 @@ export const processComplaintAssociation = async (
   const complaintCreatedAt = new Date(complaint.createdAt || Date.now());
 
   const viableCandidates = activeIncidents.filter((inc) => {
-    // Category compatibility gate
-    const catScore = calculateCategoryScore(category, inc.category);
+    // Category compatibility gate (Root-Cause-First Primary Category Compatibility)
+    const catScore = calculateCategoryScore(
+      category,
+      inc.category,
+      { subcategory: aiAnalysis.subcategory, department: aiAnalysis.department },
+      {
+        subcategory: (inc as any).subcategory,
+        department: inc.departmentName || inc.aiRecommendedDepartment,
+        title: inc.title,
+        summary: inc.summary,
+      }
+    );
     if (catScore === 0) return false;
 
     // Geographic distance gate (1.5x margin for pre-filtering)
@@ -101,6 +111,9 @@ export const processComplaintAssociation = async (
     complaintCode: reportCode,
     description,
     category,
+    subcategory: aiAnalysis.subcategory,
+    department: aiAnalysis.department,
+    needsHumanReview: aiAnalysis.needsHumanReview,
     latitude,
     longitude,
     createdAt: complaintCreatedAt,

@@ -108,16 +108,111 @@ export const calculateTimeScore = (
   }
 };
 
-// Category compatibility matrix
+// Sub-domain categorization under the generic 'other' CivicCategory
+export type OtherSubDomain = 'traffic' | 'animal' | 'general_civic';
+
+export const resolveOtherDomain = (
+  subcategory?: string | null,
+  department?: string | null,
+  title?: string | null,
+  summary?: string | null
+): OtherSubDomain | null => {
+  const combined = `${subcategory || ''} ${department || ''} ${title || ''} ${summary || ''}`.toLowerCase();
+
+  if (
+    combined.includes('traffic') ||
+    combined.includes('congestion') ||
+    combined.includes('signal') ||
+    combined.includes('parking') ||
+    combined.includes('gridlock') ||
+    combined.includes('chakka jam')
+  ) {
+    return 'traffic';
+  }
+
+  if (
+    combined.includes('animal') ||
+    combined.includes('cattle') ||
+    combined.includes('cow') ||
+    combined.includes('bull') ||
+    combined.includes('dog') ||
+    combined.includes('gaay') ||
+    combined.includes('saand')
+  ) {
+    return 'animal';
+  }
+
+  if (
+    combined.includes('general') ||
+    combined.includes('other civic') ||
+    combined.includes('encroachment') ||
+    combined.includes('noise') ||
+    combined.includes('miscellaneous')
+  ) {
+    return 'general_civic';
+  }
+
+  return null;
+};
+
+/**
+ * Strict check for whether two items are eligible for AUTO_MERGE based on their primary categories.
+ * Cross-category merges (e.g. waterlogging + traffic, road_damage + traffic) are strictly disallowed.
+ */
+export const isCategoryAutoMergeCompatible = (
+  catA?: CivicCategory | null,
+  catB?: CivicCategory | null,
+  contextA?: { subcategory?: string | null; department?: string | null } | null,
+  contextB?: { subcategory?: string | null; department?: string | null; title?: string | null; summary?: string | null } | null
+): boolean => {
+  if (!catA || !catB) return false;
+
+  // Cross-category pairs can NEVER auto-merge (e.g. road_damage vs other, drainage vs other, etc.)
+  if (catA !== catB) return false;
+
+  // Both are the same core infrastructure category (road_damage, drainage, garbage, electrical_hazard)
+  if (catA !== 'other') return true;
+
+  // Both are 'other': verify sub-domain alignment (Traffic Police vs Animal Control vs General Civic)
+  const domainA = resolveOtherDomain(contextA?.subcategory, contextA?.department);
+  const domainB = resolveOtherDomain(contextB?.subcategory, contextB?.department, contextB?.title, contextB?.summary);
+
+  if (domainA && domainB) {
+    return domainA === domainB;
+  }
+
+  // If sub-domains cannot be positively matched, do not auto-merge
+  return false;
+};
+
+// Category compatibility matrix (Root-Cause-First Primary Category Compatibility)
 export const calculateCategoryScore = (
   catA?: CivicCategory | null,
-  catB?: CivicCategory | null
+  catB?: CivicCategory | null,
+  contextA?: { subcategory?: string | null; department?: string | null } | null,
+  contextB?: { subcategory?: string | null; department?: string | null; title?: string | null; summary?: string | null } | null
 ): number => {
-  if (!catA || !catB) return 0.5; // Unspecified category allows soft compatibility
-  if (catA === catB) return 1.0;
-  // 'other' allows soft compatibility (0.6) with specific categories when strong semantic & location evidence exists
-  if (catA === 'other' || catB === 'other') return 0.6;
-  // Distinct civic categories (drainage vs electrical vs road_damage) are strictly incompatible
+  if (!catA || !catB) return 0.2; // Unspecified category is low compatibility
+
+  if (catA === catB) {
+    if (catA !== 'other') {
+      return 1.0;
+    }
+
+    // Both are 'other'
+    const domainA = resolveOtherDomain(contextA?.subcategory, contextA?.department);
+    const domainB = resolveOtherDomain(contextB?.subcategory, contextB?.department, contextB?.title, contextB?.summary);
+
+    if (domainA && domainB) {
+      return domainA === domainB ? 1.0 : 0.0;
+    }
+
+    return 0.5; // Ambiguous sub-domains under 'other'
+  }
+
+  // Cross-Category Compatibility:
+  // Distinct primary civic categories (e.g. drainage vs other:traffic, road_damage vs other:traffic,
+  // electrical vs road_damage) are strictly incompatible at the candidate selection level (0.0).
   return 0.0;
 };
 
@@ -151,6 +246,9 @@ export interface EvaluateFusionInput {
   complaintCode?: string;
   description: string;
   category: CivicCategory;
+  subcategory?: string;
+  department?: string;
+  needsHumanReview?: boolean;
   latitude: number;
   longitude: number;
   createdAt: Date;
@@ -160,6 +258,7 @@ export interface EvaluateFusionInput {
       sampleDescriptions?: string[];
       incidentEmbedding?: number[] | null;
       complaintEmbeddings?: number[][];
+      subcategory?: string;
     }
   >;
 }
@@ -169,6 +268,9 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
     complaintCode,
     description,
     category,
+    subcategory,
+    department,
+    needsHumanReview,
     latitude,
     longitude,
     createdAt,
@@ -193,12 +295,20 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
     breakdown: FusionScoreBreakdown;
   }> = [];
 
+  const contextA = { subcategory, department };
+
   // Evaluate ALL candidate incidents across the search space
   for (const incident of candidateIncidents) {
     const incCode = incident.incidentCode || incident.id;
+    const contextB = {
+      subcategory: (incident as any).subcategory,
+      department: incident.departmentName || incident.aiRecommendedDepartment,
+      title: incident.title,
+      summary: incident.summary,
+    };
 
-    // 1. HARD GATE: Category Match
-    const categoryScore = calculateCategoryScore(category, incident.category);
+    // 1. HARD GATE: Category Match (Root-Cause-First Primary Category Compatibility)
+    const categoryScore = calculateCategoryScore(category, incident.category, contextA, contextB);
     if (categoryScore === 0) {
       console.log(`🔍 [Fusion Candidate Debug]
   complaint_code: ${complaintCode || 'NEW'}
@@ -311,13 +421,30 @@ export const evaluateFusion = (input: EvaluateFusionInput): FusionScoreBreakdown
       timeScore * 0.15 +
       categoryScore * 0.15;
 
-    // Decision Bands (PRD Section 16)
+    // Decision Bands (PRD Section 16 with Root-Cause Primary Category Strict Compatibility)
     let decision: FusionDecision = 'SEPARATE';
     let rejectionReason = 'LOW_FUSION_SCORE';
 
+    // Verify auto-merge category eligibility (Root-Cause Strict Compatibility)
+    const isAutoMergeEligible = isCategoryAutoMergeCompatible(
+      category,
+      incident.category,
+      contextA,
+      contextB
+    );
+
     if (fusionScore >= ENV.FUSION_AUTO_MERGE_THRESHOLD) {
-      decision = 'AUTO_MERGE';
-      rejectionReason = 'AUTO_MERGE';
+      if (isAutoMergeEligible && !needsHumanReview) {
+        decision = 'AUTO_MERGE';
+        rejectionReason = 'AUTO_MERGE';
+      } else {
+        // High composite score but cross-category or uncertain classification:
+        // Safely demote to REVIEW to prevent improper auto-merge!
+        decision = 'REVIEW';
+        rejectionReason = !isAutoMergeEligible
+          ? 'CATEGORY_INCOMPATIBLE_DEMOTED_TO_REVIEW'
+          : 'UNCERTAIN_CLASSIFICATION_HUMAN_REVIEW';
+      }
     } else if (fusionScore >= ENV.FUSION_REVIEW_THRESHOLD) {
       decision = 'REVIEW';
       rejectionReason = 'HUMAN_REVIEW';
